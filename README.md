@@ -1,6 +1,7 @@
 # GreatEscape
 
 2022-09-09 12.22
+After the date the first change was made
 
 A trivial Spectrum emulator made for reverse engineering purposes. The main idea is to have a full state log after each instrucion, so you can do dynamic program analysis.
 So far I have a proof of concept code for sending line comments to Ghidra that are a result of all the instructions executed in one run, but not in another.
