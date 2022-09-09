@@ -33,7 +33,6 @@ namespace GreatEscape
 
                 if (m_instruction_counter % 5000 == 0)
                 {
-                    //scr.Update();
                     scr.Refresh();
                 }
 
