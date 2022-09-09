@@ -1,0 +1,192 @@
+﻿<Window x:Class="GreatEscape.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GreatEscape"
+        mc:Ignorable="d"
+        WindowStartupLocation="Manual" 
+        Left="1120" Top="616"        
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewKeyUp="Window_PreviewKeyUp"
+        Title="MainWindow" Height="470" Width="800">
+    <Window.Resources>
+        <!--  style -->
+        <Style TargetType="Button">
+            <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style TargetType="Image" x:Key="ShotStyle" >
+            <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality" />
+            <Setter Property="RenderOptions.EdgeMode" Value="Unspecified" />
+            <Setter Property="Stretch" Value="Uniform" />
+        </Style>
+        <DataTemplate x:Key="temExecLog">
+            <Grid >
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding}" />
+                <Border Grid.Column="1" BorderThickness="5" BorderBrush="Black" 
+                        VerticalAlignment="Top"   >
+                    <StackPanel Orientation="Horizontal">
+                        
+                    <Image Grid.Row="1" Source="{Binding BmpStart}" Style="{StaticResource ShotStyle}"
+                       Width="64" Height="48" />
+                        <Image Grid.Row="1" Source="{Binding BmpMid}" Style="{StaticResource ShotStyle}"
+                       Width="64" Height="48" />
+                        <Image Grid.Row="1" Source="{Binding BmpEnd}" Style="{StaticResource ShotStyle}"
+                       Width="64" Height="48" />
+                        <!--
+                       Stretch="Uniform"    
+                       RenderOptions.BitmapScalingMode="NearestNeighbor" RenderOptions.EdgeMode="Unspecified"  />
+                        -->
+                    </StackPanel>
+                </Border>
+
+
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+    
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.ColumnSpan="2">
+            <Button Content="Toggle size" Click="ToggleSize_Click" />
+            <Button Content="Start" Name="StartButton" Width="100" Click="StartButton_Click" />
+            <TextBlock Text="{Binding DebugProp}" Width="70" Margin="10" HorizontalAlignment="Center"/>
+            <Button Content="Save 64k bin" Name="SaveButton" Width="100" Click="SaveButton_Click" />
+            <Button Content="10" Click="ButtonLoops_Click" ></Button>
+            <Button Content="100" Click="ButtonLoops_Click" ></Button>
+            <Button Content="1000" Click="ButtonLoops_Click" ></Button>
+            <Button Content="10000" Click="ButtonLoops_Click" ></Button>
+            <CheckBox Content="Enable timer" IsChecked="{Binding CheckBoxTimerEnabled}"  VerticalAlignment="Center" />
+            <StackPanel Margin="20 0 0 0 ">
+                <TextBlock Text="steps per frame" />
+                <TextBox Text="{Binding StepsPerFrame}"  />
+
+            </StackPanel>
+
+            <Button>
+                <TextBlock><Span>firstline</Span>
+                    <LineBreak/>
+                    <Run Text="{Binding StepsPerFrame}" />   
+                </TextBlock>
+            </Button>
+            
+        </StackPanel>
+
+        
+        <Grid Grid.Row = "1" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            
+            <!-- image that we will update from code  -->
+            <Border Grid.Row="0" x:Name="bord" BorderThickness="1" BorderBrush="Black" MaxWidth="500"
+                    VerticalAlignment="Top"   >
+                <Image Grid.Row="1" Source="{Binding ScreenBmp}" Stretch="UniformToFill"  
+                       RenderOptions.BitmapScalingMode="NearestNeighbor" RenderOptions.EdgeMode="Unspecified"  />
+            </Border>
+            
+            <!-- Frame control sliders-->
+
+            
+            <!-- create slider and start top buttons-->
+            <Grid  Grid.Row= "2" > <!-- slider grid -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Rectangle Height="30" Width="30" Fill="Red" Margin="5 5 5 5" />
+                <Rectangle Height="30" Width="30" Grid.Column="1" Fill="Green" Margin="5 5 5 5" />
+                <Slider Grid.Column="2"  Margin="1" x:Name="slidero"
+                    DataContext="{Binding ElementName=logItems, Path=SelectedItem}"
+                    VerticalAlignment="Center"
+                    Minimum="0" Maximum="100" TickPlacement="None"
+                    ValueChanged="Slider_ValueChanged"
+                      />
+                <!--        
+                    Minimum="0" Maximum="{Binding MaxFrame}" 
+                    Value="{Binding Frame, Mode=TwoWay}"  IsSnapToTickEnabled="True" TickFrequency="50"  />
+                
+                -->
+                <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.ColumnSpan="3">
+                    <Button Content="Set selection start" Click="SetSelectionStart" />
+                    <Button Content="Set selection end" Click="SetSelectionEnd"  />
+                    <Button Content="Create new from selection" Click="CreateNewFromSelection_Click"  />
+                </StackPanel>
+
+            </Grid>
+            <TextBlock Grid.Row="3" Text="{Binding DbgWatchVars}" />
+
+
+        </Grid> 
+
+
+        <!-- right sidebar -->
+        <Grid Grid.Row="1" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition  Height="Auto" />
+                <RowDefinition  Height="Auto" />
+                <RowDefinition  Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- start stop buttons -->
+            <StackPanel Orientation="Horizontal" Grid.Row="0" >
+                <Button Content="Start from current frame"  Click="StartExec_Click" />
+                <Button Content="Stop exec log"  Click="StopExec_Click" />
+                <Button Content="Dis" Click="Dis_Click" />
+                <Button Content="In next but not in selected" Click="InNextButNotSelected" />
+            </StackPanel>
+
+            <!-- remvoed Height="100" -->
+            <Border  Grid.Row="1" BorderBrush="Blue" BorderThickness="3" MaxHeight="250" >
+                <!-- create items control -->
+
+
+                <!-- <ItemsControl ItemsSource="{Binding ExecLogs}"  
+                          HorizontalContentAlignment="Stretch"                          
+               
+                -->
+                <ListView ItemsSource="{Binding ExecLogs}"   ItemTemplate="{StaticResource temExecLog}"
+                          SelectedItem="{Binding ActiveLog}"
+                          HorizontalContentAlignment="Stretch"                          
+                          
+                          Name = "logItems"
+                              >
+                </ListView>
+                
+                
+                
+            </Border>
+
+
+            <TextBlock Grid.Row="2"  FontFamily="Consolas" FontSize="20" Background="Yellow"
+                   Text="{Binding ZDis}" />
+
+        </Grid>
+        
+
+
+
+    </Grid>
+</Window>
