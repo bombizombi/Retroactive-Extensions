@@ -32,14 +32,11 @@ namespace GreatEscape
 
             //v1 copy whole ram every instruction
             //v2 if the memory is the same, just point to the last 
-
+            //v3 sequence same comparison
+            
             //compare array elements for each element
-            bool ramSame = true;
-            for (int i = 0; i < ram.Length; i++)
-            {
-                if (ram[i] != immuLastRam[i]) { ramSame = false; break; }
-            }
-                
+            bool ramSame = immuLastRam.SequenceEqual(ram);    
+
             if (ramSame)
             {
                 ramC = immuLastRam;
@@ -86,7 +83,7 @@ namespace GreatEscape
                 Debugger.Break();
             }
         }
-        private const int memLimit = 12;
+        private const int memLimit = 4;
 
         private static long oneGig = (long)1024 * (long)1024 * (long)1024;
         public static bool MemoryFull { get => (entryCount+1) * EST_MEM_PER_ITEM > oneGig * memLimit; }

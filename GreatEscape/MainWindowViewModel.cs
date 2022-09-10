@@ -130,9 +130,9 @@ namespace GreatEscape
             DebugProp = "start clicked";
 
             //for now big logger starts right away
-            
-            
-            //StartExecLog();
+            //turn this on for convenience
+
+//            StartExecLog();
 
 
 
@@ -560,12 +560,57 @@ namespace GreatEscape
                 }
             };
             //if ( e.Key == Key.D1) { m_keyboard.SetKey1(true); }
+
             ac(Key.D1, m_keyboard.SetKey1);
             ac(Key.D2, m_keyboard.SetKey2);
             ac(Key.D3, m_keyboard.SetKey3);
             ac(Key.D4, m_keyboard.SetKey4);
+            ac(Key.D5, m_keyboard.SetKey5);
+
+            ac(Key.D6, m_keyboard.SetKey6);
+            ac(Key.D7, m_keyboard.SetKey7);
+            ac(Key.D8, m_keyboard.SetKey8);
+            ac(Key.D9, m_keyboard.SetKey9);
             ac(Key.D0, m_keyboard.SetKey0);
+
+            ac(Key.Q, m_keyboard.SetKeyQ);
+            ac(Key.W, m_keyboard.SetKeyW);
+            ac(Key.E, m_keyboard.SetKeyE);
+            ac(Key.R, m_keyboard.SetKeyR);
+            ac(Key.T, m_keyboard.SetKeyT);
+
             ac(Key.Y, m_keyboard.SetKeyY);
+            ac(Key.U, m_keyboard.SetKeyU);
+            ac(Key.I, m_keyboard.SetKeyI);
+            ac(Key.O, m_keyboard.SetKeyO);
+            ac(Key.P, m_keyboard.SetKeyP);
+
+            ac(Key.A, m_keyboard.SetKeyA);
+            ac(Key.S, m_keyboard.SetKeyS);
+            ac(Key.D, m_keyboard.SetKeyD);
+            ac(Key.F, m_keyboard.SetKeyF);
+            ac(Key.G, m_keyboard.SetKeyG);
+
+
+            ac(Key.Enter, m_keyboard.SetKeyEnter);
+            ac(Key.L, m_keyboard.SetKeyL);
+            ac(Key.K, m_keyboard.SetKeyK);
+            ac(Key.J, m_keyboard.SetKeyJ);
+            ac(Key.H, m_keyboard.SetKeyH);
+
+            ac(Key.LeftShift, m_keyboard.SetKeyLeftShift);
+            ac(Key.Z, m_keyboard.SetKeyZ);
+            ac(Key.X, m_keyboard.SetKeyX);
+            ac(Key.C, m_keyboard.SetKeyC);
+            ac(Key.V, m_keyboard.SetKeyV);
+
+            ac(Key.Space, m_keyboard.SetKeySpace);
+            ac(Key.OemComma, m_keyboard.SetKeyOemComma);
+            ac(Key.M, m_keyboard.SetKeyM);
+            ac(Key.N, m_keyboard.SetKeyN);
+            ac(Key.B, m_keyboard.SetKeyB);
+
+
 
         }
 
@@ -583,8 +628,50 @@ namespace GreatEscape
             ac(Key.D2, m_keyboard.SetKey2);
             ac(Key.D3, m_keyboard.SetKey3);
             ac(Key.D4, m_keyboard.SetKey4);
+            ac(Key.D5, m_keyboard.SetKey5);
+
+            ac(Key.D6, m_keyboard.SetKey6);
+            ac(Key.D7, m_keyboard.SetKey7);
+            ac(Key.D8, m_keyboard.SetKey8);
+            ac(Key.D9, m_keyboard.SetKey9);
             ac(Key.D0, m_keyboard.SetKey0);
+
+            ac(Key.Q, m_keyboard.SetKeyQ);
+            ac(Key.W, m_keyboard.SetKeyW);
+            ac(Key.E, m_keyboard.SetKeyE);
+            ac(Key.R, m_keyboard.SetKeyR);
+            ac(Key.T, m_keyboard.SetKeyT);
+
             ac(Key.Y, m_keyboard.SetKeyY);
+            ac(Key.U, m_keyboard.SetKeyU);
+            ac(Key.I, m_keyboard.SetKeyI);
+            ac(Key.O, m_keyboard.SetKeyO);
+            ac(Key.P, m_keyboard.SetKeyP);
+
+            ac(Key.A, m_keyboard.SetKeyA);
+            ac(Key.S, m_keyboard.SetKeyS);
+            ac(Key.D, m_keyboard.SetKeyD);
+            ac(Key.F, m_keyboard.SetKeyF);
+            ac(Key.G, m_keyboard.SetKeyG);
+
+            ac(Key.Enter, m_keyboard.SetKeyEnter);
+            ac(Key.L, m_keyboard.SetKeyL);
+            ac(Key.K, m_keyboard.SetKeyK);
+            ac(Key.J, m_keyboard.SetKeyJ);
+            ac(Key.H, m_keyboard.SetKeyH);
+
+            ac(Key.LeftShift, m_keyboard.SetKeyLeftShift);
+            ac(Key.Z, m_keyboard.SetKeyZ);
+            ac(Key.X, m_keyboard.SetKeyX);
+            ac(Key.C, m_keyboard.SetKeyC);
+            ac(Key.V, m_keyboard.SetKeyV);
+
+            ac(Key.Space, m_keyboard.SetKeySpace);
+            ac(Key.OemComma, m_keyboard.SetKeyOemComma);
+            ac(Key.M, m_keyboard.SetKeyM);
+            ac(Key.N, m_keyboard.SetKeyN);
+            ac(Key.B, m_keyboard.SetKeyB);
+
         }
 
         private Z80Lib.Context ctx;

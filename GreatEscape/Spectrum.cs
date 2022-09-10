@@ -986,6 +986,11 @@ namespace GreatEscape
                     XOR_IYb();
                     return;
                 }
+                if (iy_instruction == 0x96)
+                {
+                    SUB_IYb();
+                    return;
+                }
 
 
                 if (iy_instruction == 0xCB)
@@ -1078,6 +1083,11 @@ namespace GreatEscape
                 if (ix_instruction == 0xE1)
                 {
                     POP_IX();
+                    return;
+                }
+                if (ix_instruction == 0xB6)
+                {
+                    OR_IXd();
                     return;
                 }
 
@@ -1546,6 +1556,25 @@ namespace GreatEscape
             flag_adj_s((byte)rez);
         }
 
+        private void SUB_IYb()
+        {
+            sbyte b = (sbyte)ram[pc++];
+            int adr = iy + b;
+            byte val = ram[adr];
+            int rez = a - val;
+            a = (byte)(rez);
+            if (rez < 0)
+            {
+                //Debugger.Break();
+                DebugLogSubBugs(pc - 1);
+                //crate a list of locations with this bug
+            }
+            flag_adj_z((byte)rez);
+            flag_adj_c(rez < 0);
+            flag_adj_s((byte)rez);
+        }
+
+
         private void SUB_n()
         {
             int val = ram[pc++];
@@ -1699,7 +1728,15 @@ namespace GreatEscape
             flag_adj_c(false);
         }
 
-
+        private void OR_IXd()
+        {
+            sbyte b = (sbyte)ram[pc++];
+            int adr = ix + b;
+            a = (byte)(a | ram[adr]);
+            flag_adj_s(a);
+            flag_adj_z(a);
+            flag_adj_c(false);
+        }
 
         private void XOR_N()
         {
@@ -1712,7 +1749,7 @@ namespace GreatEscape
         }
         private void XOR_IYb()
         {
-            byte b = ram[pc++];
+            sbyte b = (sbyte)ram[pc++];
             int adr = iy + b;
             a = (byte)(a ^ ram[adr]);
             flag_adj_s(a);
