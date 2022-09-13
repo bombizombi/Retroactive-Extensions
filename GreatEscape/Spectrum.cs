@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using static GreatEscape.Spectrum;
 
 namespace GreatEscape
 {
@@ -181,7 +182,7 @@ namespace GreatEscape
             //log current pc
             //m_vizmem.NewPC(pc);
 
-            m_instruction_counter++; //
+            m_instruction_counter++; 
             int p = pc;
             int instruction = ram[p];
             m_opcode = (byte)instruction; 
@@ -286,12 +287,16 @@ namespace GreatEscape
 
             if (m_execLogEnabled)
             {
-                if ( m_execLog.LogInstruction((ushort)p, ram, this))
+                //if ( m_execLog.LogInstruction((ushort)p, ram, this))
+                //logging should move after the instruction
+                //if (m_execLog.AddLogInstruction ((ushort)p, ram, this))
+                if (false) //still not sure what to do about this
                 {
                     m_instaExitRequested = true;
                     stop_error = true;
                     return;
                 }
+
 
                 /*
                 xx
@@ -338,8 +343,20 @@ namespace GreatEscape
 
                 if( m_execLogEnabled)
                 {
+                    xx;
                     var x = m_loggingOpcodes[instruction];
-                    m_execLog.AddLogInstruction(x);
+                    var maker = x(instruction);
+                    //m_execLog.AddLogInstruction(x);
+
+                    if (m_execLog.AddLogInstruction((ushort)p, maker)); //perhaps more params   ram, this))
+                    
+                    {
+                        //perhaps some other action would be better on memory full condition
+                        m_instaExitRequested = true;
+                        stop_error = true;
+                        return;
+                    }
+
                 }
 
                 return;
@@ -1354,14 +1371,25 @@ namespace GreatEscape
 
 
         Action[] m_opcodes;
-        object[] m_loggingOpcodes; //set type after usage
+        LogStateMaker[] m_loggingOpcodes; //set type after usage
+
+
+
+        //xx public delegate Func<ExecLogState, ExecLogState> LogStateMaker(byte op, ExecLogState s);
+
         private void InitializeOpcodeArray()
         {
             //helpers
             //fetch operand predicate
-            Func<object[], Func<byte, bool>> opcode = def => (Func<byte, bool>)def[0];  //fetch opcode 
-            Func<object[], Action>      instruction = def => (Action)def[1];            //fetch instr
-            Func<object[], Action>       loggerinst = def => (Action)def[2];            //fetch instruction logger
+            //could be replaced by a record? class?
+
+            Func<object[], Func<byte, bool>> opcode  = def => (Func<byte, bool>)def[0];  //fetch opcode 
+            Func<object[], Action> instruction       = def => (Action)def[1];            //fetch instr
+            Func<object[], LogStateMaker> loggerinst = def => (LogStateMaker)def[2];            //fetch instruction logger
+            //Func<object[], Func<ExecLogState, byte, Func<ExecLogState, ExecLogState>>> loggerinst       = def => 
+            //    (Func<byte, ExecLogState, Func<ExecLogState,ExecLogState>>)def[2];            //fetch instruction logger
+
+            //helpers not used anymore
 
             //fill the opcode decoder table
             m_opcodes = new Action[256];
@@ -1371,28 +1399,31 @@ namespace GreatEscape
                 //detect opcodes that this instruction understands
                 for (int i = 0; i < 256; i++)
                 {
-                    if (opcode(def)((byte)i)) {
-                        m_opcodes[i] = instruction(def);
+                    //if (opcode(def)((byte)i)) {
+                    if ( def.OpcodeDecoder((byte)i)  )
+                    {
+                        //m_opcodes[i] = instruction(def);
+                        m_opcodes[i] = def.Instruction;
                     }
                 }
             }
             
             //fill the opcode logger table
-            m_loggingOpcodes = new Action[256];
+            m_loggingOpcodes = new LogStateMaker[256];
             foreach (var def in GenerateOpcodeList())
             {
                 for (int i = 0; i < 256; i++)
                 {
-                    if (opcode(def)((byte)i))
+                    if (def.OpcodeDecoder((byte)i))
                     {
-                        m_loggingOpcodes[i] = loggerinst(def);
+                        m_loggingOpcodes[i] = def.Logger;
                     }
                 }
             }
 
 
         }
-        private List<object[]> GenerateOpcodeList()  //instruction def object
+        private List<InstructionDef> GenerateOpcodeList()  //instruction def object
         {
             //list of object[3], 
 
@@ -1434,15 +1465,17 @@ namespace GreatEscape
             //optable
 
 
-            List<object[]> instructions = new();
+            //List<object[]> instructions = new();
+            List<InstructionDef> instructions = new();
 
-
-            instructions.Add(new object[]{
-                (Func<byte,bool>) ( op => op == 0x25),
-                (Action) ( () =>  {
+            //stick it in a variable
+            InstructionDef dummyUnusedVariable = new InstructionDef {
+                OpcodeDecoder = op => op == 0x25,
+                Instruction = () => {
                     I_DecH();
-                }),
-                (Action) (  () => {
+                },
+                Logger = (opc) =>
+                {
                     Debugger.Break();
 
                     //but wont this just capture the processor h?
@@ -1451,7 +1484,107 @@ namespace GreatEscape
 
                     //readsFrom(h); //touch reg h
                     //writesTo(h);  //modify reg h
-        
+                    //return state;
+                    return state =>
+                    {
+                        Debugger.Break(); //implement a
+                        //st.a = capRezValue;
+                        return state;
+                    };
+                }
+            };
+
+
+
+
+            instructions.Add(new InstructionDef {
+                OpcodeDecoder =  op => op == 0x25,
+                Instruction = () =>  {
+                    I_DecH();
+                },
+                Logger =   (opc, state) => {
+                    Debugger.Break();
+
+                    //but wont this just capture the processor h?
+                    //we need it to work or the Log Register h
+                    h = (byte)(h - 1);
+
+                    //readsFrom(h); //touch reg h
+                    //writesTo(h);  //modify reg h
+                    //return state;
+                    return state => {
+                        Debugger.Break(); //implement a
+                        //st.a = capRezValue;
+                        return state;
+                    };
+                }
+
+            });
+
+            instructions.Add(new InstructionDef {
+
+                 // 1010 1rrr  XOR r
+                OpcodeDecoder = op => (op & 0b11111000) == 0b10101000,
+                Instruction = () => XOR_reg() ,
+                //(Func<byte, ExecLogState, Func<ExecLogState, ExecLogState>>)((opc, state) => {
+                Logger = (opc, state) => {
+                    Debugger.Break();
+
+                    //instructions can works with the opcode being available in the state
+                    //loggingInstructions should capute the opcode
+
+                    //
+                    int r = opc & 7; //capturing the r?
+                    
+                    //a = (byte)(a ^ reg_readers[r]());
+                    //byte capRezValue = (byte) ( reg_readers[r]() );
+
+                    Debug.Assert(false, "add regreaderrs to state");
+                    //byte capRezValue = (byte) ( state.reg_readers[r]() );
+                    byte capRezValue = 0; //dummy
+                    
+
+                    return st => {
+                        Debugger.Break(); //implement a
+                        //st.a = capRezValue;
+                        return st;
+                    };
+
+                    //reading: reg r, or even memory?
+                    //if r is 110, then H, L, and (HL) memory is read
+                    //if r is 111, (XOR A) then nothing is read, 0 is written is A
+
+
+                }
+            });
+
+
+
+
+            /* before, instruction defined an object[3] array, then cast when reading it
+             * switching to a record class
+            11              
+            instructions.Add(new object[]{
+                (Func<byte,bool>) ( op => op == 0x25),
+                (Action) ( () =>  {
+                    I_DecH();
+                }),
+                (LogStateMaker) (  (opc, state) => {
+                    Debugger.Break();
+
+                    //but wont this just capture the processor h?
+                    //we need it to work or the Log Register h
+                    h = (byte)(h - 1);
+
+                    //readsFrom(h); //touch reg h
+                    //writesTo(h);  //modify reg h
+                    //return state;
+                    return state => {
+                        Debugger.Break(); //implement a
+                        //st.a = capRezValue;
+                        return state;
+                    };
+
 
 
                 })
@@ -1463,7 +1596,8 @@ namespace GreatEscape
                  // 1010 1rrr  XOR r
                 (Func<byte, bool>)(op => (op & 0b11111000) == 0b10101000),
                 (Action)(() => XOR_reg() ),
-                (Func<byte, ExecLogState, Action<ExecLogState>>)((opc, state) => {
+                //(Func<byte, ExecLogState, Func<ExecLogState, ExecLogState>>)((opc, state) => {
+                (LogStateMaker)((opc, state) => {
                     Debugger.Break();
 
                     //instructions can works with the opcode being available in the state
@@ -1473,10 +1607,18 @@ namespace GreatEscape
                     int r = opc & 7; //capturing the r?
                     
                     //a = (byte)(a ^ reg_readers[r]());
-                    byte capRezValue = (byte) ( reg_readers[r]() );
+                    //byte capRezValue = (byte) ( reg_readers[r]() );
 
+                    Debug.Assert(false, "add regreaderrs to state");
+                    //byte capRezValue = (byte) ( state.reg_readers[r]() );
+                    byte capRezValue = 0; //dummy
+                    
 
-                    return state => state.a = capRezValue;
+                    return st => {
+                        Debugger.Break(); //implement a
+                        //st.a = capRezValue;
+                        return st;
+                    };
 
                     //reading: reg r, or even memory?
                     //if r is 110, then H, L, and (HL) memory is read
@@ -1485,9 +1627,10 @@ namespace GreatEscape
 
                 })
             });
-
+              
             
-
+            22
+            */
 
             return instructions;
         }//end GenerateInstructionsList 
@@ -4031,10 +4174,11 @@ namespace GreatEscape
 
 
 
-        public void StartLog(ExecLogV1FullSnapshots logTester)
+        public void StartLog(ExecLog log,  ExecLogV1FullSnapshots logTester)
         {
             m_execLogEnabled = true; //not sure about this one
             m_execLog = log;
+            m_execLogTester = logTester; //to be removed
         }
 
         private bool m_instaExitRequested = false;        
@@ -4053,7 +4197,7 @@ namespace GreatEscape
             return $"pc:{pc:X4}";
         }
 
-        internal void SetStateScreenOnly(ExecLogEntryV1 entry)
+        internal void SetStateScreenOnly(ExecLogState entry)
         {
             //copy entry to member variables
             Array.Copy(entry.ramC, 0x4000, ram, 0x4000, 256 / 8 * 192 + 256 * 3);
@@ -4068,6 +4212,31 @@ namespace GreatEscape
         
 
     } // end of class Spectrum 
+    /* this form does not allow parameterless construction usage with named property initializers
+    public record InstructionDef(Func<byte, bool> OpcodeDecoder,
+                                 Action Instruction,
+                                 LogStateMaker Logger);
+    */
+        
+    
+    public record InstructionDef
+    {
+        public Func<byte, bool> OpcodeDecoder { get; init; } //? = default;
+        public Action Instruction { get; init; }
+        public LogStateMaker Logger { get; init; }
+    }
+
+        
+    /*
+    (Func<byte, bool>) (op => op == 0x25),
+                (Action) (() =>  {
+                    I_DecH();
+}),
+                (LogStateMaker)((opc, state) => {
+
+    */
+
+
 
     public class PictureBoxReplacement
     {

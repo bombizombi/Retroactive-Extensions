@@ -729,6 +729,9 @@ namespace GreatEscape
 
 
             var log = new ExecLog("Fireworks.");
+            //now we need to record the initiali state, before the first instruction is executed
+            log.InitializeState(m_zx.ram);
+
             var logTester = new ExecLogV1FullSnapshots("Fireworks.");
             m_zx.StartLog(log, logTester);
 
@@ -853,8 +856,8 @@ namespace GreatEscape
 
         //222222222222222
 
-        private ExecLogV1FullSnapshots _activeLog;
-        public ExecLogV1FullSnapshots ActiveLog //bound to listview SelectedItem
+        private ExecLog _activeLog;
+        public ExecLog ActiveLog //bound to listview SelectedItem
         {
             get { return _activeLog; }
             set
@@ -871,10 +874,10 @@ namespace GreatEscape
 
         }
 
-        private void SetZXStateFromLog(ExecLogV1FullSnapshots _activeLog, int requested)
+        private void SetZXStateFromLog(ExecLog _activeLog, int requested)
         {
             //this will not work with more than 7FFF FFFF elemes
-            ExecLogEntryV1 entry = _activeLog.LogEntries[requested];
+            ExecLogState entry = _activeLog[requested];
             //copy entry to m_zx memory
             m_zx.SetStateScreenOnly(entry);
             UpdateGUI();
@@ -919,10 +922,10 @@ namespace GreatEscape
 
         }
 
-        private void UpdateVarWatchers(ExecLogV1FullSnapshots _activeLog, int requested)
+        private void UpdateVarWatchers(ExecLog _activeLog, int requested)
         {
 
-            ExecLogEntryV1 entry = _activeLog.LogEntries[requested];
+            ExecLogState entry = _activeLog[requested];
 
             int ix = 0xa5df;
             int adr = ix + 6; //, ix is? a5df
@@ -954,7 +957,7 @@ namespace GreatEscape
         }
 
 
-        private ExecLogV1FullSnapshots? ActiveOrFirst()
+        private ExecLog? ActiveOrFirst()
         {
             var log = ActiveLog;
 
