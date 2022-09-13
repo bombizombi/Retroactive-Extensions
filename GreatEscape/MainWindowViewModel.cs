@@ -132,7 +132,7 @@ namespace GreatEscape
             //for now big logger starts right away
             //turn this on for convenience
 
-//            StartExecLog();
+            StartExecLog();
 
 
 
@@ -729,7 +729,8 @@ namespace GreatEscape
 
 
             var log = new ExecLog("Fireworks.");
-            m_zx.StartLog(log);
+            var logTester = new ExecLogV1FullSnapshots("Fireworks.");
+            m_zx.StartLog(log, logTester);
 
 
             if( procX != null)
@@ -748,11 +749,14 @@ namespace GreatEscape
         }
 
 
-        private ObservableCollection<ExecLog> _execLog = new();
+        //private ObservableCollection<ExecLogV1FullSnapshots> _execLog = new();
+        private ObservableCollection<ExecLog> _execLogs = new();
+
+
         public ObservableCollection<ExecLog> ExecLogs
         {
-            get { return _execLog; }
-            set { _execLog = value; SetProperty(ref _execLog, value);  }
+            get { return _execLogs; }
+            set { _execLogs = value; SetProperty(ref _execLogs, value);  }
         }
 
         internal void StopExecLog()
@@ -766,7 +770,7 @@ namespace GreatEscape
             log.CreateMugShots();
 
             //save the log in a collection  
-            _execLog.Add(log);
+            _execLogs.Add(log);
             
             
             
@@ -816,8 +820,8 @@ namespace GreatEscape
             //copy of stop-logging event
             //do log[active+1] and not log[active]
 
-            var log1 = _execLog[1]; //hack
-            var log2 = _execLog[2];
+            var log1 = _execLogs[1]; //hack
+            var log2 = _execLogs[2];
 
             //select members of log2 that are not in the log1
             var forbidenAdrs = log1.LogEntries
@@ -849,8 +853,8 @@ namespace GreatEscape
 
         //222222222222222
 
-        private ExecLog _activeLog;
-        public ExecLog ActiveLog //bound to listview SelectedItem
+        private ExecLogV1FullSnapshots _activeLog;
+        public ExecLogV1FullSnapshots ActiveLog //bound to listview SelectedItem
         {
             get { return _activeLog; }
             set
@@ -867,10 +871,10 @@ namespace GreatEscape
 
         }
 
-        private void SetZXStateFromLog(ExecLog _activeLog, int requested)
+        private void SetZXStateFromLog(ExecLogV1FullSnapshots _activeLog, int requested)
         {
             //this will not work with more than 7FFF FFFF elemes
-            ExecLogEntry entry = _activeLog.LogEntries[requested];
+            ExecLogEntryV1 entry = _activeLog.LogEntries[requested];
             //copy entry to m_zx memory
             m_zx.SetStateScreenOnly(entry);
             UpdateGUI();
@@ -915,10 +919,10 @@ namespace GreatEscape
 
         }
 
-        private void UpdateVarWatchers(ExecLog _activeLog, int requested)
+        private void UpdateVarWatchers(ExecLogV1FullSnapshots _activeLog, int requested)
         {
 
-            ExecLogEntry entry = _activeLog.LogEntries[requested];
+            ExecLogEntryV1 entry = _activeLog.LogEntries[requested];
 
             int ix = 0xa5df;
             int adr = ix + 6; //, ix is? a5df
@@ -950,7 +954,7 @@ namespace GreatEscape
         }
 
 
-        private ExecLog? ActiveOrFirst()
+        private ExecLogV1FullSnapshots? ActiveOrFirst()
         {
             var log = ActiveLog;
 
@@ -1008,7 +1012,8 @@ namespace GreatEscape
             {
                 Debug.Assert(false, "zero len log in the system");
             }
-            _execLog.Add(log);
+            
+            _execLogs.Add(log);
         }
 
         internal void SetSelectionStart()

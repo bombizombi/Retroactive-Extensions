@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +15,50 @@ using System.Windows.Media.Imaging;
 
 namespace GreatEscape
 {
-    public class ExecLogEntry
+
+
+    public sealed class ExecLogEntry //v2
+    {
+
+        public ushort executedAddress;
+
+        //full state on the first element, updates after?
+
+
+        //public
+
+        //for memory i need mem address
+        //                  new value
+        //                  old value
+
+        //one byte memory read
+        //one byte memory write
+
+        //word memory read
+        //word memory write
+
+        //byte reg read
+        //byte reg write
+
+        //word reg read
+        //word reg write
+        //which reg, old, new
+
+        //flags for if all those things happpened or not
+
+
+    }
+
+
+
+
+
+
+
+
+    //below is the full snapshot exec log version
+
+    public sealed class ExecLogEntryV1
     {
         public const long EST_MEM_PER_ITEM = 66000;
 
@@ -26,7 +70,7 @@ namespace GreatEscape
 
         private static byte[] immuLastRam = new byte[0x10000]; //what is this 
         public static Registers immuLastRegisters = new Registers(); 
-        public ExecLogEntry(ushort adr, byte[] ram, Spectrum zx)
+        public ExecLogEntryV1(ushort adr, byte[] ram, Spectrum zx)
         {
             executedAddress = adr;
 
@@ -109,15 +153,15 @@ namespace GreatEscape
 
     }
 
-    public class ExecLog
+    public sealed class ExecLogV1FullSnapshots
     {
         public string Name;
-        public List<ExecLogEntry> LogEntries;
+        public List<ExecLogEntryV1> LogEntries;
 
-        public ExecLog(string name)
+        public ExecLogV1FullSnapshots(string name)
         {
             Name = name;
-            LogEntries = new List<ExecLogEntry>();
+            LogEntries = new List<ExecLogEntryV1>();
 
             _bmpStart = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
             _bmpMid = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
@@ -128,7 +172,7 @@ namespace GreatEscape
             ////_bmp1 = 
             //Screen.PaintZXScreenVersion5(LogEntries[0].ramC, _bmp1);
         }
-        public ExecLog(string name, List<ExecLogEntry> list) : this(name)
+        public ExecLogV1FullSnapshots(string name, List<ExecLogEntryV1> list) : this(name)
         {
             //Name = name;
             LogEntries = list;
@@ -144,24 +188,66 @@ namespace GreatEscape
             Screen.PaintZXScreenVersion5(LogEntries[count].ramC, _bmpEnd);
         }
 
+        internal bool LogInstruction(ushort pc_start, byte[] ram, Spectrum zx)
+        //pc_start: pc at the start of instruction
+        //ram:  
+        //zx:  just needed for the registers
+        //return bool if emulation stop requested
+        {
 
-        internal void Add(ExecLogEntry e)
+            if (ExecLogEntryV1.MemoryFull)
+            {
+                return true;
+                /*
+                m_instaExitRequested = true;
+                stop_error = true;
+                return;*/
+            }
+
+            var e = new ExecLogEntryV1(pc_start, ram, zx);
+            Add(e);
+
+            //if execlog will do incremental updates, check if it gets the same state back
+            //get last log state
+            ExecLogEntryV1? entry = GetLast();
+            if (entry is not null)
+            {
+                if (!entry.CompareToSpectrumState(zx))
+                {
+                    //we need to get back the same state
+                    Debug.Assert(false, "Last log no good.");
+                }
+            }
+            return false;
+
+        }
+
+        internal void Add(ExecLogEntryV1 e)
         {
             LogEntries.Add(e);
         }
+
+        //
+
+
+
+
+
+
+
 
         public override string ToString()
         {
             return $"Items: {this.LogEntries.Count()}";
         }
 
-        internal ExecLogEntry? GetLast()
+        internal ExecLogEntryV1? GetLast()
         {
             if (LogEntries.Count == 0) return null;
             return LogEntries.Last();
         }
 
-        internal ExecLog CreateSubLog(long sublistStart, long length)
+        internal ExecLogV1FullSnapshots CreateSubLog(long sublistStart, long length)
         {
             //create new log from this, with a new length
 
@@ -171,7 +257,7 @@ namespace GreatEscape
             //linq, create sublist from LogEntries
             var newList = this.LogEntries.GetRange((int)sublistStart, (int)length);
             var newName = Name + " sub";
-            var newLog = new ExecLog(newName, newList);
+            var newLog = new ExecLogV1FullSnapshots(newName, newList);
             newLog.CreateMugShots();
             return newLog;
         }
@@ -272,4 +358,8 @@ namespace GreatEscape
 
 
     }
+
+
+    
+
 }

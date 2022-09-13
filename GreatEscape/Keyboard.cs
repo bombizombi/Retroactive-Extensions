@@ -128,6 +128,9 @@ namespace GreatEscape
 
         public bool ReadInPort(int portH, int portL, out byte a)
         {
+            //you should be able to press two keys at once in the same segment
+            int retvalue = 0x1F;
+
             //read zx spectrum keys, only some combos of b and c will be valid
             if (portL == 0xFE) //all key ports share this c
             {
@@ -155,12 +158,17 @@ namespace GreatEscape
                         if (keyT) { a = 0b01111; return true; }
                         break;
                     case 0xDF:
-                        if (keyP) { a = 0b11110; return true; }
-                        if (keyO) { a = 0b11101; return true; }
-                        if (keyI) { a = 0b11011; return true; }
-                        if (keyU) { a = 0b10111; return true; }
-                        if (keyY) { a = 0b01111; return true; }
-
+                        //if (keyP) { a = 0b11110; return true; }
+                        //if (keyO) { a = 0b11101; return true; }
+                        //if (keyI) { a = 0b11011; return true; }
+                        //if (keyU) { a = 0b10111; return true; }
+                        //if (keyY) { a = 0b01111; return true; }
+                        if (keyP) retvalue &= 0b11110;
+                        if (keyO) retvalue &= 0b11101;
+                        if (keyI) retvalue &= 0b11011;
+                        if (keyU) retvalue &= 0b10111;
+                        if (keyY) retvalue &= 0b01111;
+                        a = (byte)retvalue; return true;
                         break;
                     case 0xFD:   //A S D F G
                         if (keyA) { a = 0b11110; return true; }
@@ -230,6 +238,7 @@ namespace GreatEscape
             //BFFE  enter L   K J H
             //7FFE  space Sym M N B
 
+            //what happens with this false 
             a = 0;
             return false;
 

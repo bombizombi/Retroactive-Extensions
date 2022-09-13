@@ -11,7 +11,7 @@ using System.Windows.Input;
 
 namespace GreatEscape
 {
-    public class Spectrum
+    public sealed class Spectrum
     {
 
         private int m_instruction_counter = 0;
@@ -172,6 +172,7 @@ namespace GreatEscape
         private byte m_opcode;
         private bool m_execLogEnabled = false;
         private ExecLog m_execLog;
+        private ExecLogV1FullSnapshots m_execLogTester;
         public int highWaterMark = 0;
         public void Step(out bool stop_error)
         {
@@ -285,6 +286,16 @@ namespace GreatEscape
 
             if (m_execLogEnabled)
             {
+                if ( m_execLog.LogInstruction((ushort)p, ram, this))
+                {
+                    m_instaExitRequested = true;
+                    stop_error = true;
+                    return;
+                }
+
+                /*
+                xx
+                moved to LogInstruction
                 if (ExecLogEntry.MemoryFull)
                 {
                     m_instaExitRequested = true;
@@ -305,7 +316,7 @@ namespace GreatEscape
                         Debug.Assert(false, "Last log no good.");
                     }
                 }
-
+                */
 
 
             }
@@ -313,15 +324,28 @@ namespace GreatEscape
 
             //END LOGGING section
 
+            
 
-            var exec =
-            m_opcodes[instruction];
+            var toExecute =  m_opcodes[instruction];
 
-            if( exec is not null){
 
-                exec();
+
+            if( toExecute is not null){ //should go away after all instructions are here
+
+                toExecute();
+
+                //log after execution
+
+                if( m_execLogEnabled)
+                {
+                    var x = m_loggingOpcodes[instruction];
+                    m_execLog.AddLogInstruction(x);
+                }
+
                 return;
             }
+
+            
             
 
 
@@ -1329,7 +1353,8 @@ namespace GreatEscape
         }
 
 
-        Action[] m_opcodes; // = new Action[256]; ??
+        Action[] m_opcodes;
+        object[] m_loggingOpcodes; //set type after usage
         private void InitializeOpcodeArray()
         {
             //helpers
@@ -1351,47 +1376,112 @@ namespace GreatEscape
                     }
                 }
             }
-                
-                    
+            
+            //fill the opcode logger table
+            m_loggingOpcodes = new Action[256];
+            foreach (var def in GenerateOpcodeList())
+            {
+                for (int i = 0; i < 256; i++)
+                {
+                    if (opcode(def)((byte)i))
+                    {
+                        m_loggingOpcodes[i] = loggerinst(def);
+                    }
+                }
+            }
+
+
         }
         private List<object[]> GenerateOpcodeList()  //instruction def object
         {
             //list of object[3], 
 
-            List<object[]> instructions = new();
 
             //array of 3 objects ->
             //                      op code (or more than one?)
             //                      actual instruction
-            //                      memory opeorations logger?
+            //                      memory opeorations logger
+
+            //logger:
+            //need something that can read the parameterized register, but also 
+            //a specific one
+            //like r.a  or r.fromindex(3)  (number coming from the instruction bits)
+            //so like regreader and regWriter
+
+            //writesTo(?);  //modify reg, depending on opcode.  
+            //  - reg X used (but not if A)
+            //  - reg A overwritten
+            //touches (reads?) mem at pc(at the start on the instruction) with len of the inst.
+            //executes mem at pc
+
+            //so, this object needs to:
+            //-change state of the memory and registers
+            //-let us know what registers where changed
+            //-also save what as the previous value???
+
+            //optins: class with fields (with optional state?)
+            //        delegate with state?
+            
+            
+            //attempt 1:  just create lamda that does the needed state changes
+            //            and returns the descriptions of what is changed
+            //            (descriptions could be bitpacked?)
+            //
+            //
+            //
+            //
+
+            //optable
+
+
+            List<object[]> instructions = new();
+
 
             instructions.Add(new object[]{
                 (Func<byte,bool>) ( op => op == 0x25),
                 (Action) ( () =>  {
                     I_DecH();
-                    //h = (byte)(h - 1);
-                    //flag_adj_z(h);
                 }),
                 (Action) (  () => {
                     Debugger.Break();
+
+                    //but wont this just capture the processor h?
+                    //we need it to work or the Log Register h
+                    h = (byte)(h - 1);
+
                     //readsFrom(h); //touch reg h
                     //writesTo(h);  //modify reg h
         
+
+
                 })
 
             });
 
             instructions.Add(new object[] {
 
+                 // 1010 1rrr  XOR r
                 (Func<byte, bool>)(op => (op & 0b11111000) == 0b10101000),
                 (Action)(() => XOR_reg() ),
-                (Action)(() => {
+                (Func<byte, ExecLogState, Action<ExecLogState>>)((opc, state) => {
                     Debugger.Break();
-                    //writesTo(?);  //modify reg, depending on opcode.  
-                    //  - reg X used (but not if A)
-                    //  - reg A overwritten
-                    //touches (reads?) mem at pc(at the start on the instruction) with len of the inst.
-                    //executes mem at pc
+
+                    //instructions can works with the opcode being available in the state
+                    //loggingInstructions should capute the opcode
+
+                    //
+                    int r = opc & 7; //capturing the r?
+                    
+                    //a = (byte)(a ^ reg_readers[r]());
+                    byte capRezValue = (byte) ( reg_readers[r]() );
+
+
+                    return state => state.a = capRezValue;
+
+                    //reading: reg r, or even memory?
+                    //if r is 110, then H, L, and (HL) memory is read
+                    //if r is 111, (XOR A) then nothing is read, 0 is written is A
+
 
                 })
             });
@@ -3941,7 +4031,7 @@ namespace GreatEscape
 
 
 
-        public void StartLog(ExecLog log)
+        public void StartLog(ExecLogV1FullSnapshots logTester)
         {
             m_execLogEnabled = true; //not sure about this one
             m_execLog = log;
@@ -3963,7 +4053,7 @@ namespace GreatEscape
             return $"pc:{pc:X4}";
         }
 
-        internal void SetStateScreenOnly(ExecLogEntry entry)
+        internal void SetStateScreenOnly(ExecLogEntryV1 entry)
         {
             //copy entry to member variables
             Array.Copy(entry.ramC, 0x4000, ram, 0x4000, 256 / 8 * 192 + 256 * 3);
