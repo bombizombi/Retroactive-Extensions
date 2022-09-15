@@ -19,6 +19,10 @@ namespace GreatEscape
         {
             base.OnStartup(e);
 
+            //app init
+            //ExecLogState.Initialize_Reg_ReadersWriters();
+
+
             MainWindow window = new MainWindow();
 
             window.DataContext = new MainWindowViewModel();

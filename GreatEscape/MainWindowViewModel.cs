@@ -176,6 +176,9 @@ namespace GreatEscape
                 StopTimer();
             }
 
+            //trigger garbage collector
+            //GC.Collect();
+
         }
 
         public bool LoopX(int steps) //return true to stop running
@@ -730,7 +733,7 @@ namespace GreatEscape
 
             var log = new ExecLog("Fireworks.");
             //now we need to record the initiali state, before the first instruction is executed
-            log.InitializeState(m_zx.ram);
+            log.InitializeState(m_zx.ram, m_zx);
 
             var logTester = new ExecLogV1FullSnapshots("Fireworks.");
             m_zx.StartLog(log, logTester);
@@ -767,7 +770,8 @@ namespace GreatEscape
             var log = m_zx.StopLog(); //should stop after current instruction
 
             if (log is null) return;  //emulator didn't even start
-            if (log.LogEntries.Count() <= 0) return; //no log entries
+            //if (log.LogEntries.Count() <= 0) return; //no log entries
+            if (log.IsEmpty()) return; // no log entries
 
             //create movie screenshots
             log.CreateMugShots();

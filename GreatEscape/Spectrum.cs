@@ -20,145 +20,11 @@ namespace GreatEscape
         private Keyboard m_keyboard;
         private string m_z80File;
 
-
-        public void LoopSteps(PictureBoxReplacement scr)
-        {
-            bool stop_error = false;
-            bool exit = false;
-            do
-            {
-
-                //SavePCLog();
-
-                Step(out stop_error);
-
-                if (m_instruction_counter % 5000 == 0)
-                {
-                    scr.Refresh();
-                }
-
-                exit = false;
-            } while (exit == false);
-        }
-
-
-        public void LoopSteps(PictureBoxReplacement scr, int steps)
-        {
-            mscr = scr;
-
-            for (int i = 0; i < steps; i++)
-            {
-                //debug
-                int dbgadr = 0x5800 + (9 * 32);  //attrib at coors 9,0
-                int dbgval = ram[dbgadr];
-
-                if (pc == 0x6A38) //setup room
-                {
-                    //st();
-                }
-
-                bool stop_error = false;
-                Step(out stop_error);
-
-                if (stop_error) break;
-
-                DebugChecks();
-
-
-                if (m_instruction_counter % 5000 == 0)
-                {
-                    //scr.Refresh();
-                }
-
-                //check for modified mem
-                if (ram[dbgadr] != dbgval)
-                {
-                    scr.Refresh();
-                    //Debugger.Break();
-                }
-
-            }
-        }
-
-        private void DebugChecks()
-        {
-            if (ram[0xE1BF] == 0)
-            {
-                //Debugger.Break();
-            }
-
-
-        }
-
-
-
-        private PictureBoxReplacement mscr;
-        public void st()
-        {
-            mscr.Refresh();
-            Debugger.Break();
-        }
-
-        public bool dbg_logInstructions;
-        public void DebugStartInstructionLog()
-        {
-            dbg_logInstructions = true;
-        }
-        public void DebugStopIL()
-        {
-            dbg_logInstructions = false;
-        }
-        public void DebugROM()
-        {
-            //rainbow rom
-            for (int i = 0; i < 16384; i++)
-            {
-                ram[i] = (byte)i;
-            }
-        }
-
-
-
-
-
-
-        internal string DisplayPC()
-        {
-            string hexadr = String.Format("0x{0:X4}", pc);
-            return hexadr;
-        }
-
-        public string DisplayRegisters()
-        {
-            var rez = new StringBuilder();
-
-            rez.AppendFormat("BC {0:X2}{1:X2}\r\n", b, c);
-            rez.AppendFormat("DE {0:X2}{1:X2}\r\n", d, e);
-            rez.AppendFormat("HL {0:X2}{1:X2}\r\n", h, l);
-            rez.AppendFormat("A {0:X2}\r\n", a);
-
-
-            rez.AppendFormat("\r\nstack:");
-            for (int i = 0; i < 10; i++)
-            {
-                int x1 = i * 2 + sp;
-                int x2 = i * 2 + sp + 1;
-                if (x2 > 65535)
-                {
-                    rez.AppendFormat(" END");
-                    break;
-                }
-                rez.AppendFormat(" {0:X4}", i * 2 + ram[x1] + 256 * ram[x2]);
-                if (i * 2 + sp + 2 >= 65535 - 1)
-                {
-                    rez.AppendFormat(" END");
-                    break;
-                }
-            }
-
-            return rez.ToString();
-        }
-
+        private byte m_opcode;
+        private bool m_execLogEnabled = false;
+        private ExecLog m_execLog;
+        private ExecLogV1FullSnapshots m_execLogTester;
+        public int highWaterMark = 0;
 
 
         List<ushort> m_pclog;
@@ -167,14 +33,9 @@ namespace GreatEscape
             //save program counter values
             if (m_pclog == null) m_pclog = new List<ushort>();
             m_pclog.Add(pc);
-
         }
 
-        private byte m_opcode;
-        private bool m_execLogEnabled = false;
-        private ExecLog m_execLog;
-        private ExecLogV1FullSnapshots m_execLogTester;
-        public int highWaterMark = 0;
+
         public void Step(out bool stop_error)
         {
             stop_error = false;
@@ -188,10 +49,6 @@ namespace GreatEscape
             m_opcode = (byte)instruction; 
             pc++;
 
-            if( p == 0xa3cc)
-            {
-                //Debugger.Break();
-            }
 
             //DEBUG SECTION
             if (p < 16384)
@@ -199,12 +56,6 @@ namespace GreatEscape
                 Debug.Assert(false, "executing empty ROM");
             }
 
-            if (m_instruction_counter == 0x0161306F) //new high water
-            {
-                //		m_instruction_counter	0x01613070	int
-
-                int a123 = 123;
-            }
 
             if (pc > highWaterMark)
             {
@@ -343,12 +194,12 @@ namespace GreatEscape
 
                 if( m_execLogEnabled)
                 {
-                    xx;
+                    //xx;
                     var x = m_loggingOpcodes[instruction];
-                    var maker = x(instruction);
-                    //m_execLog.AddLogInstruction(x);
+                    //var replayer = x(instruction);
+                    var replayer = x();
 
-                    if (m_execLog.AddLogInstruction((ushort)p, maker)); //perhaps more params   ram, this))
+                    if (m_execLog.AddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
                     
                     {
                         //perhaps some other action would be better on memory full condition
@@ -365,7 +216,7 @@ namespace GreatEscape
             
             
 
-
+            //oldins
 
             if (instruction == 0x25)
             {
@@ -421,11 +272,11 @@ namespace GreatEscape
                 JP_NN();
                 return;
             }
-            if (instruction == 0xCD)
+            /*if (instruction == 0xCD)
             {
                 CALL_NN();
                 return;
-            }
+            }*/
             if (instruction == 0x01)
             {
                 LD_BC_NN();
@@ -526,11 +377,11 @@ namespace GreatEscape
                 CPL();
                 return;
             }
-            if (instruction == 0xE6)
+            /*if (instruction == 0xE6)
             {
                 AND_N();  //and imediate avlue
                 return;
-            }
+            }*/
 
 
 
@@ -549,11 +400,11 @@ namespace GreatEscape
                 return;
             }
 
-            if (instruction == 0x28)
+            /*if (instruction == 0x28)
             {
                 JR_Z_E();
                 return;
-            }
+            }*/
             if (instruction == 0x06)
             {
                 LD_B_N();
@@ -570,21 +421,21 @@ namespace GreatEscape
                 RET_Z();
                 return;
             }
-            if (instruction == 0x3E)
+            /*if (instruction == 0x3E)
             {
                 LD_A_N();
                 return;
-            }
-            if (instruction == 0xc9)
+            }*/
+            /*if (instruction == 0xc9)
             {
                 RET();
                 return;
-            }
-            if (instruction == 0xFE)
+            }*/
+            /*if (instruction == 0xFE)
             {
                 CP_N();
                 return;
-            }
+            }*/
             if (instruction == 0x21)
             {
                 LD_HL_NN();
@@ -610,11 +461,11 @@ namespace GreatEscape
                 PUSH_HL();
                 return;
             }
-            if (instruction == 0x3A)
+            /*if (instruction == 0x3A)
             {
                 LD_A_NNI();
                 return;
-            }
+            }*/
             if (instruction == 0xBE)
             {
                 CP_HLI();
@@ -705,7 +556,9 @@ namespace GreatEscape
                 //LD_BC_NN();
                 return;
             }
-            if ((instruction & 0xC0) == 0x40)
+
+            /*if ((instruction & 0xC0) == 0x40)
+            //this instruction patter overwrites HLT instruction, which would be LD (HL), (HL) in this logic
             {   // 01 rrr xxx   LD r, x
                 LD_R_RPRIME(instruction);
                 if (instruction == 0x78)
@@ -714,12 +567,13 @@ namespace GreatEscape
                     return;
                 }
                 return;
-            }
+            }*/
+            /*
             if (instruction == 0x32)
             {
                 LD_NNI_A();
                 return;
-            }
+            }*/
             if (instruction == 0x1A)
             {
                 LD_A_DEI();
@@ -858,11 +712,11 @@ namespace GreatEscape
                 DI();
                 return;
             }
-            if (instruction == 0x31)
+            /*if (instruction == 0x31)
             {
                 LD_SP_NN();
                 return;
-            }
+            }*/
             if (instruction == 0x12)
             {
                 LD_DEI_A();
@@ -1245,12 +1099,12 @@ namespace GreatEscape
                 return;
             }
 
-            
+            /*
             if (instruction == 0xDB)
             {
                 IN_A_N();
                 return;
-            }
+            }*/
             
 
             //int pc2 = pc - 1;
@@ -1423,6 +1277,30 @@ namespace GreatEscape
 
 
         }
+
+
+        //logger helpers
+        private Func<ExecLogState, ExecLogState> modifyF()
+        {
+            byte capf = f;
+            return state =>
+            {
+                state.registersC.f = capf;
+                return state;
+            };
+        }
+        private Func<ExecLogState, ExecLogState> modifyA()
+        {
+            byte capa = a;
+            return state =>
+            {
+                state.registersC.a = capa;
+                return state;
+            };
+        }
+
+
+
         private List<InstructionDef> GenerateOpcodeList()  //instruction def object
         {
             //list of object[3], 
@@ -1460,61 +1338,34 @@ namespace GreatEscape
             //
             //
             //
-            //
+            // LD H, (HL) problem, hl memory read operation can only be logged before the instr. execution
+            //            since the adress gets deleted in the reading
 
-            //optable
 
 
             //List<object[]> instructions = new();
             List<InstructionDef> instructions = new();
 
-            //stick it in a variable
-            InstructionDef dummyUnusedVariable = new InstructionDef {
-                OpcodeDecoder = op => op == 0x25,
-                Instruction = () => {
-                    I_DecH();
-                },
-                Logger = (opc) =>
-                {
-                    Debugger.Break();
-
-                    //but wont this just capture the processor h?
-                    //we need it to work or the Log Register h
-                    h = (byte)(h - 1);
-
-                    //readsFrom(h); //touch reg h
-                    //writesTo(h);  //modify reg h
-                    //return state;
-                    return state =>
-                    {
-                        Debugger.Break(); //implement a
-                        //st.a = capRezValue;
-                        return state;
-                    };
-                }
-            };
-
-
 
 
             instructions.Add(new InstructionDef {
                 OpcodeDecoder =  op => op == 0x25,
-                Instruction = () =>  {
-                    I_DecH();
-                },
-                Logger =   (opc, state) => {
-                    Debugger.Break();
+                Instruction = () =>  I_DecH() ,
+                Logger = () => {
 
                     //but wont this just capture the processor h?
                     //we need it to work or the Log Register h
-                    h = (byte)(h - 1);
+                    //h = (byte)(h - 1);
 
                     //readsFrom(h); //touch reg h
                     //writesTo(h);  //modify reg h
                     //return state;
+
+                    byte newH = h;
+
                     return state => {
-                        Debugger.Break(); //implement a
                         //st.a = capRezValue;
+                        state.registersC.h = newH;
                         return state;
                     };
                 }
@@ -1527,26 +1378,31 @@ namespace GreatEscape
                 OpcodeDecoder = op => (op & 0b11111000) == 0b10101000,
                 Instruction = () => XOR_reg() ,
                 //(Func<byte, ExecLogState, Func<ExecLogState, ExecLogState>>)((opc, state) => {
-                Logger = (opc, state) => {
-                    Debugger.Break();
+                Logger = () => {
 
                     //instructions can works with the opcode being available in the state
-                    //loggingInstructions should capute the opcode
+                    //loggingInstructions should capute the opcode. do they?
 
-                    //
-                    int r = opc & 7; //capturing the r?
+                    int r = m_opcode & 7; //capturing the r?
                     
                     //a = (byte)(a ^ reg_readers[r]());
-                    //byte capRezValue = (byte) ( reg_readers[r]() );
-
-                    Debug.Assert(false, "add regreaderrs to state");
-                    //byte capRezValue = (byte) ( state.reg_readers[r]() );
-                    byte capRezValue = 0; //dummy
                     
+                    if (r == 7) // A - 111
+                    {
+                        return st =>
+                        {
+                            //we capture nothing
+                            st.registersC.a = 0;
+                            return st;
+                        };
+                    }
+                    byte capRezValue = a; //just capture the result
 
                     return st => {
-                        Debugger.Break(); //implement a
-                        //st.a = capRezValue;
+                        //Debugger.Break(); //implement a yo writting a result
+                        Debug.Assert(r != 7, "a should not be used here");
+                        
+                        st.registersC.a = capRezValue;
                         return st;
                     };
 
@@ -1558,7 +1414,201 @@ namespace GreatEscape
                 }
             });
 
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xDB == op,
+                Instruction = ()   => IN_A_N(),
+                Logger = () => {
+                    byte capa = a;
+                    return state => {
+                        state.registersC.a = capa;
+                        return state;
+            }; } });
 
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xE6 == op, 
+                Instruction = () => AND_N(),
+                Logger = () => {
+                    byte capa = a;
+                    byte capf = f;
+                    return state => {
+                        state.registersC.a = capa;
+                        state.registersC.f = capf;
+                        return state;
+                    };
+                }
+            });
+
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xFE == op,
+                Instruction = () => CP_N(),
+                Logger = () => {
+                    /*
+                    byte capf = f;
+                    return state => {
+                        state.registersC.f = capf;
+                        return state;
+                    };*/
+                    return modifyF();
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x28 == op,
+                Instruction = () => JR_Z_E(),
+                Logger = () => {
+                    /*
+                    sbyte e = (sbyte)ram[pc]; pc++;
+
+                    bool z = Z();
+                    if (z)
+                    {
+                        pc = (ushort)(pc + e);
+                    }*/
+                    ushort cappc = pc;
+                    return state => {
+                        state.registersC.pc = cappc;
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x32 == op,
+                Instruction = () => LD_NNI_A(),
+                Logger = () => {
+                    /*      int adr = ram[pc] + 256 * ram[pc + 1];
+                            pc += 2;
+                            ram[adr] = a;
+                    */
+                    //when the instruction was running because it could have been overwritten by the instruction
+                    //in that case, i need an another logger that would run before the instruction itself (a prelogger?)
+                    int capadr = ram[pc] + 256 * ram[pc + 1]; //if i take the adr now, it could be different
+                    byte capa = a;
+                    return state => {
+                        state.ramC[capadr] = capa;
+                        //Debug.Assert( ) could check if the adress was withing those two bytes
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x31 == op,
+                Instruction = () => LD_SP_NN(),
+                Logger = () => {
+                    /*      
+                     *     sp = (ushort)(ram[pc + 1] * 256 + ram[pc]);
+                            pc += 2;
+                     *      
+                    */
+                    ushort capsp = (ushort)(ram[pc-2] + 256 * ram[pc -1]  ); 
+                    return state => {
+                        state.registersC.sp = capsp;
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x3E == op,
+                Instruction = () => LD_A_N(),
+                Logger = () => {
+                    /*byte capa = a;
+                    return state => {
+                        state.registersC.a = capa;
+                        return state;
+                    };*/
+                    return modifyA();
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xCD == op,
+                Instruction = () => CALL_NN(),
+                Logger = () => {
+                    ushort cappc = pc;
+                    ushort capsp = sp;
+                    byte capmem1 = ram[sp];
+                    byte capmem2 = ram[sp+1];
+                    return state => {
+                        state.registersC.pc = cappc;
+                        state.registersC.sp = capsp;
+                        state.ramC[sp] = capmem1;
+                        state.ramC[sp+1] = capmem2;
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xC9 == op,
+                Instruction = () => RET(),
+                Logger = () => {
+                    /*
+                    int adr = ram[sp] + (256 * ram[sp + 1]);
+                    sp += 2;
+                    pc = (ushort)adr;*/
+                    ushort cappc = pc;
+                    ushort capsp = sp;
+                    return state => {
+                        state.registersC.pc = cappc;
+                        state.registersC.sp = capsp;
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x3A == op,
+                Instruction = () => LD_A_NNI(),
+                Logger = () => {
+                    return modifyA();
+                }
+            });
+
+            instructions.Add(new InstructionDef
+            {
+                //01 rrr xxx
+                OpcodeDecoder = op => (op & 0xC0) == 0x40,
+                Instruction = () => LD_R_RPRIME(),
+                Logger = () => {
+
+                    /*
+                    //baci 11
+                    //handle all LD r, r' instructions
+                    int rprime = instruction & 7;
+                    int r = (instruction / 8) & 7;
+
+                    int val = reg_readers[rprime]();
+                    reg_writers[r]((byte)val);
+                    //baci22*/
+
+                    int rprime = m_opcode & 7; //enough to just read the read reg
+                    byte capval = (byte) reg_readers[rprime](); //using zx reg readers
+                    byte capr = (byte)((m_opcode / 8) & 7);
+
+                    return st =>
+                    {
+                        //using logstate regwriters
+                        ExecLogState.st_reg_writers[capr](capval, st.ramC, st.registersC);
+                        return st;
+                    };
+                   
+
+
+                }
+            });
+
+
+
+
+
+
+
+            //optable
 
 
             /* before, instruction defined an object[3] array, then cast when reading it
@@ -2091,8 +2141,10 @@ namespace GreatEscape
             }
         }
 
-        private void LD_R_RPRIME(int instruction)
+        private void LD_R_RPRIME()
         {
+            //this 
+
             // 01 rrr rrr
             // 000 b
             // 001 c
@@ -2115,8 +2167,8 @@ namespace GreatEscape
             */
 
             //handle all LD r, r' instructions
-            int rprime = instruction & 7;
-            int r = (instruction / 8) & 7;
+            int rprime = m_opcode & 7;
+            int r = (m_opcode / 8) & 7;
 
             int val = reg_readers[rprime]();
             reg_writers[r]((byte)val);
@@ -4209,16 +4261,173 @@ namespace GreatEscape
             pc = entry.executedAddress;
 
         }
-        
+
+
+        //targer
+
+        public void LoopSteps(PictureBoxReplacement scr)
+        {
+            bool stop_error = false;
+            bool exit = false;
+            do
+            {
+
+                //SavePCLog();
+
+                Step(out stop_error);
+
+                if (m_instruction_counter % 5000 == 0)
+                {
+                    scr.Refresh();
+                }
+
+                exit = false;
+            } while (exit == false);
+        }
+
+
+        public void LoopSteps(PictureBoxReplacement scr, int steps)
+        {
+            mscr = scr;
+
+            for (int i = 0; i < steps; i++)
+            {
+                //debug
+                int dbgadr = 0x5800 + (9 * 32);  //attrib at coors 9,0
+                int dbgval = ram[dbgadr];
+
+                if (pc == 0x6A38) //setup room
+                {
+                    //st();
+                }
+
+                bool stop_error = false;
+                Step(out stop_error);
+
+                if (stop_error) break;
+
+                DebugChecks();
+
+
+                if (m_instruction_counter % 5000 == 0)
+                {
+                    //scr.Refresh();
+                }
+
+                //check for modified mem
+                if (ram[dbgadr] != dbgval)
+                {
+                    scr.Refresh();
+                    //Debugger.Break();
+                }
+
+            }
+        }
+
+        private void DebugChecks()
+        {
+            if (ram[0xE1BF] == 0)
+            {
+                //Debugger.Break();
+            }
+
+
+        }
+
+
+
+        private PictureBoxReplacement mscr;
+        public void st()
+        {
+            mscr.Refresh();
+            Debugger.Break();
+        }
+
+        public bool dbg_logInstructions;
+        public void DebugStartInstructionLog()
+        {
+            dbg_logInstructions = true;
+        }
+        public void DebugStopIL()
+        {
+            dbg_logInstructions = false;
+        }
+        public void DebugROM()
+        {
+            //rainbow rom
+            for (int i = 0; i < 16384; i++)
+            {
+                ram[i] = (byte)i;
+            }
+        }
+
+
+
+
+
+
+        internal string DisplayPC()
+        {
+            string hexadr = String.Format("0x{0:X4}", pc);
+            return hexadr;
+        }
+
+        public string DisplayRegisters()
+        {
+            var rez = new StringBuilder();
+
+            rez.AppendFormat("BC {0:X2}{1:X2}\r\n", b, c);
+            rez.AppendFormat("DE {0:X2}{1:X2}\r\n", d, e);
+            rez.AppendFormat("HL {0:X2}{1:X2}\r\n", h, l);
+            rez.AppendFormat("A {0:X2}\r\n", a);
+
+
+            rez.AppendFormat("\r\nstack:");
+            for (int i = 0; i < 10; i++)
+            {
+                int x1 = i * 2 + sp;
+                int x2 = i * 2 + sp + 1;
+                if (x2 > 65535)
+                {
+                    rez.AppendFormat(" END");
+                    break;
+                }
+                rez.AppendFormat(" {0:X4}", i * 2 + ram[x1] + 256 * ram[x2]);
+                if (i * 2 + sp + 2 >= 65535 - 1)
+                {
+                    rez.AppendFormat(" END");
+                    break;
+                }
+            }
+
+            return rez.ToString();
+        }
+
+
+
+
+
+
+
+
+
+
 
     } // end of class Spectrum 
+
+
+
+
     /* this form does not allow parameterless construction usage with named property initializers
     public record InstructionDef(Func<byte, bool> OpcodeDecoder,
                                  Action Instruction,
                                  LogStateMaker Logger);
     */
-        
-    
+
+
+    //public delegate Func<ExecLogState, ExecLogState> LogStateMaker(byte op, ExecLogState s);
+    public delegate Func<ExecLogState, ExecLogState> LogStateMaker();
+
     public record InstructionDef
     {
         public Func<byte, bool> OpcodeDecoder { get; init; } //? = default;

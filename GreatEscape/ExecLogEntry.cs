@@ -283,7 +283,7 @@ namespace GreatEscape
 
     }
 
-    public class Registers
+    public sealed class Registers
     {
         public Registers() { } //all zero
         public Registers(Spectrum zx)
@@ -298,7 +298,7 @@ namespace GreatEscape
             e = zx.e;
 
             sp = zx.sp;
-            //pc = zx.pc;  //this is not good, pc is already increased 
+            pc = zx.pc;  //this is not good, pc is already increased 
             //pc will always be different
 
             a_ = zx.a_;
@@ -314,13 +314,43 @@ namespace GreatEscape
             iy = zx.iy;
 
         }
+        public Registers( Registers other) //copy construction
+        {
+            a = other.a;
+            f = other.f;
+            b = other.b;
+            c = other.c;
+            h = other.h;
+            l = other.l;
+            d = other.d;
+            e = other.e;
+
+            sp = other.sp;
+            pc = other.pc;  //this is not good, pc is already increased 
+            //pc will always be different
+
+            a_ = other.a_;
+            f_ = other.f_;
+            b_ = other.b_;
+            c_ = other.c_;
+            h_ = other.h_;
+            l_ = other.l_;
+            d_ = other.d_;
+            e_ = other.e_;
+
+            ix = other.ix;
+            iy = other.iy;
+
+        }
+
+
 
         public byte a;
         public byte f;
         public byte b, c, h, l, d, e;
         public ushort sp;
 
-        //public ushort pc;
+        public ushort pc;
 
         public byte b_, c_, h_, l_, d_, e_;
         public byte a_, f_;
@@ -340,7 +370,7 @@ namespace GreatEscape
             if (e != zx.e) return false;
 
             if (sp != zx.sp) return false;
-            //if (pc != zx.pc) return false;
+            if (pc != zx.pc) return false;
 
             if (a_ != zx.a_) return false;
             if (f_ != zx.f_) return false;
