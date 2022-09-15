@@ -177,7 +177,7 @@ namespace GreatEscape
             }
 
             //trigger garbage collector
-            //GC.Collect();
+            //GC.Collect(0);
 
         }
 

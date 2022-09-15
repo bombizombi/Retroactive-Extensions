@@ -111,7 +111,7 @@ namespace GreatEscape
         public ExecLog(string name)
         {
             Name = name;
-            _LogEntries = new List<Func<ExecLogState, ExecLogState>>();
+            _LogEntries = new List<Func<ExecLogState, ExecLogState>>(300_070_000);
 
             _bmpStart = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
             _bmpMid = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);

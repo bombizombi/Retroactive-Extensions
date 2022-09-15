@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using static GreatEscape.Spectrum;
 
 namespace GreatEscape
 {
+
+
+
     public sealed class Spectrum
     {
+        HashSet<string> debug_nameSet = new HashSet<string>();
+
+
 
         private int m_instruction_counter = 0;
         private IMemoryAccessVisualizer m_vizmem;
@@ -36,6 +37,18 @@ namespace GreatEscape
         }
 
 
+        private bool DebugHelperAddLogInstruction(ushort p,
+            Func<ExecLogState, ExecLogState> replayer)
+        {
+            //just forward the call
+            return m_execLog.AddLogInstruction((ushort)p, replayer);
+        }
+        private Func<ExecLogState, ExecLogState> DebugHelperCreateLogRep(LogStateMaker f)
+        {
+            return f();
+        }
+
+
         public void Step(out bool stop_error)
         {
             stop_error = false;
@@ -43,10 +56,10 @@ namespace GreatEscape
             //log current pc
             //m_vizmem.NewPC(pc);
 
-            m_instruction_counter++; 
+            m_instruction_counter++;
             int p = pc;
             int instruction = ram[p];
-            m_opcode = (byte)instruction; 
+            m_opcode = (byte)instruction;
             pc++;
 
 
@@ -56,50 +69,13 @@ namespace GreatEscape
                 Debug.Assert(false, "executing empty ROM");
             }
 
-
-            if (pc > highWaterMark)
-            {
-                highWaterMark = pc; //
-                if (m_vizmem != null)
-                    m_vizmem.RequestScreenUpdate();
-            }
-
-
-
+            /*
             if (dbg_logInstructions)
             {
                 //Debug.Print("test " + pc);
                 string line = String.Format("pc: {0:X4}      de: {1:X4}  bc: {2:X4}  hl: {3:X4}  a: {4:X2}", p, d * 256 + e, b * 256 + c, h * 256 + l, a);
                 Debug.Print(line);
-            }
-
-            int total;
-            int savedDE = de();
-            int savedBC = bc();
-            Action rider = null;
-            if (p == 0x6A32)     // LDIR function that uses +1 trick and drags zero with it
-            {
-                total = 0;
-                //display mem from DE to DE + BC
-                for (int i = de(); i < de() + bc(); i++)
-                {
-                    total += ram[i];
-                }
-                rider = () =>
-                {
-                    int newtotal = 0;
-                    for (int i = savedDE; i < savedDE + savedBC; i++)
-                    {
-                        newtotal += ram[i];
-                    }
-                    //new total should be 0
-                    string msg = "before ldir, mem total was " + total + " after was " + newtotal;
-                    //Debugger.Break(); //to read the message
-                };
-
-
-            }
-
+            }*/
 
 
 
@@ -180,27 +156,31 @@ namespace GreatEscape
 
             //END LOGGING section
 
-            
-
-            var toExecute =  m_opcodes[instruction];
 
 
+            var toExecute = m_opcodes[instruction];
 
-            if( toExecute is not null){ //should go away after all instructions are here
+
+
+            if (toExecute is not null)
+            { //should go away after all instructions are here
 
                 toExecute();
 
                 //log after execution
 
-                if( m_execLogEnabled)
+                if (m_execLogEnabled)
                 {
                     //xx;
                     var x = m_loggingOpcodes[instruction];
-                    //var replayer = x(instruction);
-                    var replayer = x();
+                    //var replayer = x();
+                    //Func<ExecLogState, ExecLogState> replayer = x();
+                    Func<ExecLogState, ExecLogState> replayer = DebugHelperCreateLogRep(x);
 
-                    if (m_execLog.AddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
-                    
+
+                    //if (m_execLog.AddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
+                    if (DebugHelperAddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
+
                     {
                         //perhaps some other action would be better on memory full condition
                         m_instaExitRequested = true;
@@ -208,13 +188,24 @@ namespace GreatEscape
                         return;
                     }
 
+                    /*
+                    //debug
+                    string mingledName = replayer.Method.Name;
+                    string t = replayer.Target.GetType().Name;
+
+                    if ( !debug_nameSet.Contains( mingledName) ){
+                        Debug.WriteLine($"logmethod {m_opcode:X2} mingled name: {mingledName} target: {t}");
+                        debug_nameSet.Add(mingledName);
+                    }
+                    */
+
                 }
 
                 return;
             }
 
-            
-            
+
+
 
             //oldins
 
@@ -309,7 +300,6 @@ namespace GreatEscape
                 if (ext_instruction == 0xB0)
                 {
                     LDIR();
-                    if (rider != null) rider();
                     return;
                 }
                 if (ext_instruction == 0x73)
@@ -1105,7 +1095,7 @@ namespace GreatEscape
                 IN_A_N();
                 return;
             }*/
-            
+
 
             //int pc2 = pc - 1;
             string hexadrp = String.Format("0x{0:X4}", p); //p is a saved copy of pc
@@ -1237,8 +1227,8 @@ namespace GreatEscape
             //fetch operand predicate
             //could be replaced by a record? class?
 
-            Func<object[], Func<byte, bool>> opcode  = def => (Func<byte, bool>)def[0];  //fetch opcode 
-            Func<object[], Action> instruction       = def => (Action)def[1];            //fetch instr
+            Func<object[], Func<byte, bool>> opcode = def => (Func<byte, bool>)def[0];  //fetch opcode 
+            Func<object[], Action> instruction = def => (Action)def[1];            //fetch instr
             Func<object[], LogStateMaker> loggerinst = def => (LogStateMaker)def[2];            //fetch instruction logger
             //Func<object[], Func<ExecLogState, byte, Func<ExecLogState, ExecLogState>>> loggerinst       = def => 
             //    (Func<byte, ExecLogState, Func<ExecLogState,ExecLogState>>)def[2];            //fetch instruction logger
@@ -1246,35 +1236,32 @@ namespace GreatEscape
             //helpers not used anymore
 
             //fill the opcode decoder table
+            //fill the opcode logger table
             m_opcodes = new Action[256];
-            
-            foreach ( var def in GenerateOpcodeList())
+            m_loggingOpcodes = new LogStateMaker[256];
+
+            foreach (var def in GenerateOpcodeList())
             {
                 //detect opcodes that this instruction understands
                 for (int i = 0; i < 256; i++)
                 {
-                    //if (opcode(def)((byte)i)) {
-                    if ( def.OpcodeDecoder((byte)i)  )
-                    {
-                        //m_opcodes[i] = instruction(def);
-                        m_opcodes[i] = def.Instruction;
-                    }
-                }
-            }
-            
-            //fill the opcode logger table
-            m_loggingOpcodes = new LogStateMaker[256];
-            foreach (var def in GenerateOpcodeList())
-            {
-                for (int i = 0; i < 256; i++)
-                {
                     if (def.OpcodeDecoder((byte)i))
                     {
+                        m_opcodes[i] = def.Instruction;
                         m_loggingOpcodes[i] = def.Logger;
+
+
+                        //string name = def.Instruction.Method.Name;  DB
+                        string name = def.Logger.Method.Name;
+                        string nameInst = def.Instruction.Method.Name;
+                        string nDec = def.OpcodeDecoder.Method.Name;
+                        Debug.WriteLine($"op: {i:X2} logr: {name}       ins:{nameInst}   dec:{nDec}");
+                        //def.Logger.Target.GetType().Name      Spectrum
+
                     }
+
                 }
             }
-
 
         }
 
@@ -1330,8 +1317,8 @@ namespace GreatEscape
 
             //optins: class with fields (with optional state?)
             //        delegate with state?
-            
-            
+
+
             //attempt 1:  just create lamda that does the needed state changes
             //            and returns the descriptions of what is changed
             //            (descriptions could be bitpacked?)
@@ -1348,10 +1335,12 @@ namespace GreatEscape
 
 
 
-            instructions.Add(new InstructionDef {
-                OpcodeDecoder =  op => op == 0x25,
-                Instruction = () =>  I_DecH() ,
-                Logger = () => {
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => op == 0x25,
+                Instruction = () => I_DecH(),
+                Logger = () =>
+                {
 
                     //but wont this just capture the processor h?
                     //we need it to work or the Log Register h
@@ -1363,7 +1352,8 @@ namespace GreatEscape
 
                     byte newH = h;
 
-                    return state => {
+                    return state =>
+                    {
                         //st.a = capRezValue;
                         state.registersC.h = newH;
                         return state;
@@ -1372,23 +1362,26 @@ namespace GreatEscape
 
             });
 
-            instructions.Add(new InstructionDef {
+            instructions.Add(new InstructionDef
+            {
 
-                 // 1010 1rrr  XOR r
+                // 1010 1rrr  XOR r
                 OpcodeDecoder = op => (op & 0b11111000) == 0b10101000,
-                Instruction = () => XOR_reg() ,
+                Instruction = () => XOR_reg(),
                 //(Func<byte, ExecLogState, Func<ExecLogState, ExecLogState>>)((opc, state) => {
-                Logger = () => {
+                Logger = () =>
+                {
 
                     //instructions can works with the opcode being available in the state
                     //loggingInstructions should capute the opcode. do they?
 
                     int r = m_opcode & 7; //capturing the r?
-                    
+
                     //a = (byte)(a ^ reg_readers[r]());
-                    
+
                     if (r == 7) // A - 111
                     {
+
                         return st =>
                         {
                             //we capture nothing
@@ -1398,10 +1391,11 @@ namespace GreatEscape
                     }
                     byte capRezValue = a; //just capture the result
 
-                    return st => {
+                    return st =>
+                    {
                         //Debugger.Break(); //implement a yo writting a result
-                        Debug.Assert(r != 7, "a should not be used here");
-                        
+                        //Debug.Assert(r != 7, "a should not be used here");
+
                         st.registersC.a = capRezValue;
                         return st;
                     };
@@ -1417,22 +1411,28 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xDB == op,
-                Instruction = ()   => IN_A_N(),
-                Logger = () => {
+                Instruction = () => IN_A_N(),
+                Logger = () =>
+                {
                     byte capa = a;
-                    return state => {
+                    return state =>
+                    {
                         state.registersC.a = capa;
                         return state;
-            }; } });
+                    };
+                }
+            });
 
             instructions.Add(new InstructionDef
             {
-                OpcodeDecoder = op => 0xE6 == op, 
+                OpcodeDecoder = op => 0xE6 == op,
                 Instruction = () => AND_N(),
-                Logger = () => {
+                Logger = () =>
+                {
                     byte capa = a;
                     byte capf = f;
-                    return state => {
+                    return state =>
+                    {
                         state.registersC.a = capa;
                         state.registersC.f = capf;
                         return state;
@@ -1444,7 +1444,8 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0xFE == op,
                 Instruction = () => CP_N(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*
                     byte capf = f;
                     return state => {
@@ -1458,7 +1459,8 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0x28 == op,
                 Instruction = () => JR_Z_E(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*
                     sbyte e = (sbyte)ram[pc]; pc++;
 
@@ -1468,7 +1470,8 @@ namespace GreatEscape
                         pc = (ushort)(pc + e);
                     }*/
                     ushort cappc = pc;
-                    return state => {
+                    return state =>
+                    {
                         state.registersC.pc = cappc;
                         return state;
                     };
@@ -1478,7 +1481,8 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0x32 == op,
                 Instruction = () => LD_NNI_A(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*      int adr = ram[pc] + 256 * ram[pc + 1];
                             pc += 2;
                             ram[adr] = a;
@@ -1487,7 +1491,8 @@ namespace GreatEscape
                     //in that case, i need an another logger that would run before the instruction itself (a prelogger?)
                     int capadr = ram[pc] + 256 * ram[pc + 1]; //if i take the adr now, it could be different
                     byte capa = a;
-                    return state => {
+                    return state =>
+                    {
                         state.ramC[capadr] = capa;
                         //Debug.Assert( ) could check if the adress was withing those two bytes
                         return state;
@@ -1498,14 +1503,16 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0x31 == op,
                 Instruction = () => LD_SP_NN(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*      
                      *     sp = (ushort)(ram[pc + 1] * 256 + ram[pc]);
                             pc += 2;
                      *      
                     */
-                    ushort capsp = (ushort)(ram[pc-2] + 256 * ram[pc -1]  ); 
-                    return state => {
+                    ushort capsp = (ushort)(ram[pc - 2] + 256 * ram[pc - 1]);
+                    return state =>
+                    {
                         state.registersC.sp = capsp;
                         return state;
                     };
@@ -1515,7 +1522,8 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0x3E == op,
                 Instruction = () => LD_A_N(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*byte capa = a;
                     return state => {
                         state.registersC.a = capa;
@@ -1528,16 +1536,18 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0xCD == op,
                 Instruction = () => CALL_NN(),
-                Logger = () => {
+                Logger = () =>
+                {
                     ushort cappc = pc;
                     ushort capsp = sp;
                     byte capmem1 = ram[sp];
-                    byte capmem2 = ram[sp+1];
-                    return state => {
+                    byte capmem2 = ram[sp + 1];
+                    return state =>
+                    {
                         state.registersC.pc = cappc;
                         state.registersC.sp = capsp;
                         state.ramC[sp] = capmem1;
-                        state.ramC[sp+1] = capmem2;
+                        state.ramC[sp + 1] = capmem2;
                         return state;
                     };
                 }
@@ -1546,14 +1556,16 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0xC9 == op,
                 Instruction = () => RET(),
-                Logger = () => {
+                Logger = () =>
+                {
                     /*
                     int adr = ram[sp] + (256 * ram[sp + 1]);
                     sp += 2;
                     pc = (ushort)adr;*/
                     ushort cappc = pc;
                     ushort capsp = sp;
-                    return state => {
+                    return state =>
+                    {
                         state.registersC.pc = cappc;
                         state.registersC.sp = capsp;
                         return state;
@@ -1564,7 +1576,8 @@ namespace GreatEscape
             {
                 OpcodeDecoder = op => 0x3A == op,
                 Instruction = () => LD_A_NNI(),
-                Logger = () => {
+                Logger = () =>
+                {
                     return modifyA();
                 }
             });
@@ -1574,7 +1587,8 @@ namespace GreatEscape
                 //01 rrr xxx
                 OpcodeDecoder = op => (op & 0xC0) == 0x40,
                 Instruction = () => LD_R_RPRIME(),
-                Logger = () => {
+                Logger = () =>
+                {
 
                     /*
                     //baci 11
@@ -1587,7 +1601,7 @@ namespace GreatEscape
                     //baci22*/
 
                     int rprime = m_opcode & 7; //enough to just read the read reg
-                    byte capval = (byte) reg_readers[rprime](); //using zx reg readers
+                    byte capval = (byte)reg_readers[rprime](); //using zx reg readers
                     byte capr = (byte)((m_opcode / 8) & 7);
 
                     return st =>
@@ -1596,7 +1610,7 @@ namespace GreatEscape
                         ExecLogState.st_reg_writers[capr](capval, st.ramC, st.registersC);
                         return st;
                     };
-                   
+
 
 
                 }
@@ -1729,7 +1743,7 @@ namespace GreatEscape
 
             flag_adj_s(newval);
             flag_adj_z(newval);
-            
+
         }
 
 
@@ -2313,7 +2327,7 @@ namespace GreatEscape
                 m_refresh_reg = hack_procX.getContext().R;
                 a = hack_procX.getContext().R;
             }
-            
+
         }
 
 
@@ -2660,9 +2674,9 @@ namespace GreatEscape
                 case 0b110: //P
                     if (P()) { jump(); }
                     break;
-                    
+
                 default:
-            
+
                     Debugger.Break();
                     break;
             }
@@ -2827,7 +2841,7 @@ namespace GreatEscape
         {
             //read from port C?
             a = 0x1F;   // binary 0001 1111  -> 5 keys not pressed?
-            
+
             byte dum = 0;
             bool reckognizedPort = m_keyboard.ReadInPort(b, c, out dum);
 
@@ -2845,11 +2859,11 @@ namespace GreatEscape
         {
             //in a, (n)
             //read from port n
-            
+
             byte n = ram[pc++];
 
             //duplicate code with IN_A_C
-            
+
 
             byte dum = 0;
             bool reckognizedPort = m_keyboard.ReadInPort(a, n, out dum);
@@ -3145,7 +3159,7 @@ namespace GreatEscape
             int adr = (ushort)(ram[pc] + 256 * ram[pc + 1]);
             pc += 2;
 
-            iy = (ushort)(ram[adr] + 256 * ram[adr+1] );
+            iy = (ushort)(ram[adr] + 256 * ram[adr + 1]);
         }
 
 
@@ -3178,7 +3192,7 @@ namespace GreatEscape
         }
         private void LD_IYb_n()
         {
-            sbyte b = (sbyte) ram[pc++];  //offsets can be negative
+            sbyte b = (sbyte)ram[pc++];  //offsets can be negative
             byte n = ram[pc++];
 
             int adr = iy + b;
@@ -4125,7 +4139,7 @@ namespace GreatEscape
             string rez = "";
             var ctx = x.getContext();
             var xpc = ctx.pc.w;
-            if( xpc != pc) rez = rez + $"xpc: {xpc:X4}  pc: {pc:X4}";
+            if (xpc != pc) rez = rez + $"xpc: {xpc:X4}  pc: {pc:X4}";
             if (ctx.af.a != a) rez = rez + $"xa: {ctx.af.a:X4}  a: {a:X4}";
 
             return rez;
@@ -4151,12 +4165,12 @@ namespace GreatEscape
                 ram[736 + 22528] = 7;  //trying something like black on white
             }
         }
-     
+
         public string Disassemble()
         {
             return DebugUnknownInstruction(0, pc);
         }
-        
+
         //this function needs a name
         public string DebugUnknownInstruction(int instruction, int ipc)
         {
@@ -4175,7 +4189,7 @@ namespace GreatEscape
             //return output;
 
             ControlFile.CreateTemporaryFile_ForCrashDissasembly(ipc);
-            
+
             //string ctlText = $"c ${ipc-14:X4} UNK \r\n  ${ipc:X4},2 comment for unknown ins  \r\nD ${ipc+2:X4} commD \r\n@ $800A label=compare_none\r\nC $800E,1 A button was pressed, continue. \r\ni ${ipc+19:X4}";
             //File.WriteAllText("temp.ctl", ctlText);
 
@@ -4190,7 +4204,7 @@ namespace GreatEscape
             proc.StartInfo.WorkingDirectory = dir; // @"G:\cs\Spectrum_emulator\GreatEscape\GreatEscape\bin\Debug\net6.0-windows\";
             proc.StartInfo.FileName = @"c:\b\anaconda3\python.exe";
             proc.StartInfo.Arguments =
-            @"""G:\cs\Spectrum_emulator\skoolkit\skoolkit-8.6\sna2skool.py""  -H -c temp.ctl " 
+            @"""G:\cs\Spectrum_emulator\skoolkit\skoolkit-8.6\sna2skool.py""  -H -c temp.ctl "
                 //+ "yayfuse.z80";
                 + m_z80File;
 
@@ -4202,9 +4216,9 @@ namespace GreatEscape
             proc.StartInfo.RedirectStandardError = true;
             proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
             proc.StartInfo.CreateNoWindow = true;
-            
+
             proc.Start();
-            
+
             string output = proc.StandardOutput.ReadToEnd();
             string error = proc.StandardError.ReadToEnd();
             proc.WaitForExit();
@@ -4217,7 +4231,7 @@ namespace GreatEscape
 
 
             return output + "\r\n\r\n" + error;
-            
+
 
 
 
@@ -4226,14 +4240,14 @@ namespace GreatEscape
 
 
 
-        public void StartLog(ExecLog log,  ExecLogV1FullSnapshots logTester)
+        public void StartLog(ExecLog log, ExecLogV1FullSnapshots logTester)
         {
             m_execLogEnabled = true; //not sure about this one
             m_execLog = log;
             m_execLogTester = logTester; //to be removed
         }
 
-        private bool m_instaExitRequested = false;        
+        private bool m_instaExitRequested = false;
         public ExecLog StopLog()
         {
             //stop execution
@@ -4241,7 +4255,7 @@ namespace GreatEscape
             m_instaExitRequested = true;
 
             return m_execLog;
-            
+
         }
 
         public override string ToString()
@@ -4435,7 +4449,7 @@ namespace GreatEscape
         public LogStateMaker Logger { get; init; }
     }
 
-        
+
     /*
     (Func<byte, bool>) (op => op == 0x25),
                 (Action) (() =>  {
