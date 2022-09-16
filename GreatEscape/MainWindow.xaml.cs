@@ -106,5 +106,8 @@ namespace GreatEscape
 
 
         private void InNextButNotSelected(object sender, RoutedEventArgs e) => VM.LogicalFunctionForGhidra();
+
+        private void ButtonStepTests_Click(object sender, RoutedEventArgs e) => VM.StepWithTests();
+
     }
 }

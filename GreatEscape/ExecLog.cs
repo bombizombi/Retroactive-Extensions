@@ -28,6 +28,27 @@ namespace GreatEscape
 
 
 
+        public bool CompareToSpectrumState(Spectrum zx)
+        {
+            if (!registersC.RegistersSame(zx)) return false;
+            if (!MemorySame(zx.ram)) return false;
+            return true;
+        }
+
+
+        private bool MemorySame(byte[] ram)
+        {
+            //return ram.SequenceEqual(ramC);
+
+            //compare two byte arrays
+            for (int i = 0; i < ram.Length; i++)
+            {
+                if (ram[i] != ramC[i]) return false;
+            }
+            return true;
+
+        }
+
 
 
         public static Action<byte, byte[], Registers>[] st_reg_writers;
@@ -93,6 +114,51 @@ namespace GreatEscape
     } // end class ExecLogState
 
 
+    public sealed class ExecLogEntry //v2
+    {
+
+        public ushort executedAddress;
+        public ushort endingAddress;
+        public Func<ExecLogState, ExecLogState> replayInstruction;
+
+        public ExecLogEntry(ushort ea, ushort enda, Func<ExecLogState, ExecLogState> ri)
+        {
+            this.executedAddress = ea;
+            this.endingAddress = enda;
+            this.replayInstruction = ri;
+        }
+
+
+
+        //full state on the first element, updates after?
+
+
+        //public
+
+        //for memory i need mem address
+        //                  new value
+        //                  old value
+
+        //one byte memory read
+        //one byte memory write
+
+        //word memory read
+        //word memory write
+
+        //byte reg read
+        //byte reg write
+
+        //word reg read
+        //word reg write
+        //which reg, old, new
+
+        //flags for if all those things happpened or not
+
+    }
+
+
+
+
 
     public sealed class ExecLog //v2
     {
@@ -101,7 +167,8 @@ namespace GreatEscape
         //public List<ExecLogEntry> LogEntries;
 
         //public List< Func<ExecLogState,ExecLogState> > LogEntries;  //
-        private  List< Func<ExecLogState, ExecLogState> > _LogEntries;  //
+        //private  List< Func<ExecLogState, ExecLogState> > _LogEntries;  //
+        private List<ExecLogEntry> _LogEntries;  //
 
 
         WriteableBitmap _bmpStart;
@@ -111,14 +178,14 @@ namespace GreatEscape
         public ExecLog(string name)
         {
             Name = name;
-            _LogEntries = new List<Func<ExecLogState, ExecLogState>>(300_070_000);
+            _LogEntries = new List< ExecLogEntry >(300_070_000);
 
             _bmpStart = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
             _bmpMid = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
             _bmpEnd = new WriteableBitmap(256, 192, 96, 96, PixelFormats.Bgr32, null);
 
         }
-        public ExecLog(string name, List<Func<ExecLogState, ExecLogState>> list) : this(name)
+        public ExecLog(string name, List<ExecLogEntry> list) : this(name)
         {
             //Name = name;
             _LogEntries = list;
@@ -162,18 +229,20 @@ namespace GreatEscape
             };
 
             Debug.Assert(_LogEntries.Count() == 0, "only at start now, perhaps different later");
-            _LogEntries.Add(cooker());
+            //_LogEntries.Add(cooker());
+            var entry = new ExecLogEntry(zx.pc, zx.pc, cooker()); //no real starting address, this is just state initialization
+            _LogEntries.Add(entry);
 
-           
+
             //1111111
             //(Func<byte, ExecLogState, Action<ExecLogState>>)((opc, state) => {
-                //...
-                //return state => state.a = capRezValue;
+            //...
+            //return state => state.a = capRezValue;
 
-            }
+        }
 
 
-        public bool AddLogInstruction(ushort pc_start, 
+        public bool AddLogInstruction(ushort pc_start, ushort pc_end,
                                       Func<ExecLogState, ExecLogState> funcToReplayState )
         {
 
@@ -185,10 +254,10 @@ namespace GreatEscape
                 return true;
             }*/
 
-//            var e = new ExecLogEntryV1(pc_start, ram, zx);
+            //            var e = new ExecLogEntryV1(pc_start, ram, zx);
             //Add(e);
-
-            _LogEntries.Add( funcToReplayState);
+            var entry = new ExecLogEntry(pc_start, pc_end, funcToReplayState);
+            _LogEntries.Add( entry);
 
             //if execlog will do incremental updates, check if it gets the same state back
             //get last log state
@@ -265,13 +334,22 @@ namespace GreatEscape
         {
             //currently both indexer and public list are available
             get {
-                //var dumState = new ExecLogState() { ramC = new byte[0x10000]}; //just dummy needed here
-                var dumState = ExecLogState.Empty;
-                var state = _LogEntries[0](dumState);
+                var dumState = new ExecLogState() { ramC = new byte[0x10000]}; //just dummy needed here
+                //var dumState = ExecLogState.Empty;
+                var state = _LogEntries[0].replayInstruction(dumState);
+
+                var x = 0x5fe6;
+                //Debug.WriteLine($"log 0 5FE6 = {state.ramC[0x5FE6]}");
+
                 for (int i = 1; i <= index; i++)
                 {
-                    _LogEntries[i](state);
+                    //Debug.Write($"in{i} e6 = {state.ramC[0x5FE6]} out");
+                    _LogEntries[i].replayInstruction(state);
+                    //Debug.WriteLine($"log {i} 5FE6 = {state.ramC[0x5FE6]}");
+
                 }
+                //fix the ending pc
+                state.registersC.pc = _LogEntries[index].endingAddress;
                 return state;
             }
         }
@@ -280,12 +358,12 @@ namespace GreatEscape
         {
             get
             {
-                var state = _LogEntries[0](null);
+                var state = _LogEntries[0].replayInstruction(ExecLogState.Empty);
                 yield return state;
 
                 for (int i = 1; i < _LogEntries.Count; i++)
                 {
-                    yield return _LogEntries[i](state);
+                    yield return _LogEntries[i].replayInstruction(state);
                 }
             }
         }

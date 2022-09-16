@@ -17,38 +17,6 @@ namespace GreatEscape
 {
 
 
-    public sealed class ExecLogEntry //v2
-    {
-
-        public ushort executedAddress;
-
-        //full state on the first element, updates after?
-
-
-        //public
-
-        //for memory i need mem address
-        //                  new value
-        //                  old value
-
-        //one byte memory read
-        //one byte memory write
-
-        //word memory read
-        //word memory write
-
-        //byte reg read
-        //byte reg write
-
-        //word reg read
-        //word reg write
-        //which reg, old, new
-
-        //flags for if all those things happpened or not
-
-
-    }
-
 
 
 

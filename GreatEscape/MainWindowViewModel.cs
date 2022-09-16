@@ -18,10 +18,12 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Xaml;
 using CommunityToolkit.Mvvm;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Net.WebRequestMethods;
 using File = System.IO.File;
@@ -43,7 +45,10 @@ namespace GreatEscape
         //expose public property of type Image
         public WriteableBitmap ScreenBmp { get => screen; set => SetProperty( ref screen, value); }
         private WriteableBitmap screen;
-        
+
+        private SkoolkitIPC m_skoolkit;
+
+
         public MainWindowViewModel()
         {
             m_keyboard = new Keyboard();
@@ -75,12 +80,13 @@ namespace GreatEscape
             //IMemoryAccessVisualizer viz = new MemoryAccessVisualizer();
 
             m_zx = new Spectrum(rom, mem, null, m_keyboard, memFileName);
-            
+
             //m_screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
             Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
 
             //viz.SetSpectrum(zx);
 
+            m_skoolkit = new SkoolkitIPC(memFileName);
             //22                
 
 
@@ -121,6 +127,15 @@ namespace GreatEscape
                 ram[i + 0xaacb + 1] = b;
             }*/
 
+            /* penetrator quick start, skip any key check at the start*/
+            ram[0x800C] = 0;
+            ram[0x800D] = 0;
+
+
+            //log is auto started, modify this
+            StartExecLog(); //start log after pokes, so that the memory starts the same
+
+
         }
 
         private bool m_instaExitRequested = false;
@@ -132,7 +147,8 @@ namespace GreatEscape
             //for now big logger starts right away
             //turn this on for convenience
 
-            StartExecLog();
+
+            //StartExecLog(); //moved to constructor 
 
 
 
@@ -1036,6 +1052,50 @@ namespace GreatEscape
             if (log is null) return;
             _ssEnd = log.CalcFrameFromSlider(_sliderValue);
         }
+
+        internal void StepWithTests()
+        {
+            //do log test after each step
+
+            bool abortRequest = LoopX(1);
+            Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
+
+            //update dis
+            Disassemble();  //fill yellow the old way
+            var disLines = m_skoolkit.Disassemble(m_zx.pc);
+            EditableDis = disLines;
+
+
+            //get the last log entry, compare with current state
+            var log = m_zx.GetCurrentPartialLog();
+            int size = log.LogEntries.Count();
+            var lastEntry = log[size - 1];
+
+            var stateSame = lastEntry.CompareToSpectrumState(m_zx);
+
+            //Debug.Assert(stateSame, "Log and current state are different.");
+            if( !stateSame)
+            {
+                //log test failed
+                Debugger.Break();
+            }
+
+
+
+
+
+        }
+
+        private List<DisLine> _EditableDis;
+        public List<DisLine> EditableDis
+        {
+            get => _EditableDis;
+            set => SetProperty(ref _EditableDis, value);
+        }
+
+
+
+
     } //end class MainWindowViewModel
 
 

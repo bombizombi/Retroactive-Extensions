@@ -16,7 +16,7 @@ namespace GreatEscape
 
 
 
-        private int m_instruction_counter = 0;
+        private int aam_instruction_counter = 0;
         private IMemoryAccessVisualizer m_vizmem;
         private Keyboard m_keyboard;
         private string m_z80File;
@@ -37,11 +37,11 @@ namespace GreatEscape
         }
 
 
-        private bool DebugHelperAddLogInstruction(ushort p,
+        private bool DebugHelperAddLogInstruction(ushort p, ushort pend,
             Func<ExecLogState, ExecLogState> replayer)
         {
             //just forward the call
-            return m_execLog.AddLogInstruction((ushort)p, replayer);
+            return m_execLog.AddLogInstruction((ushort)p, pend, replayer);
         }
         private Func<ExecLogState, ExecLogState> DebugHelperCreateLogRep(LogStateMaker f)
         {
@@ -56,7 +56,7 @@ namespace GreatEscape
             //log current pc
             //m_vizmem.NewPC(pc);
 
-            m_instruction_counter++;
+            aam_instruction_counter++;
             int p = pc;
             int instruction = ram[p];
             m_opcode = (byte)instruction;
@@ -68,6 +68,8 @@ namespace GreatEscape
             {
                 Debug.Assert(false, "executing empty ROM");
             }
+
+            //if (aam_instruction_counter == 0xb) Debugger.Break();
 
             /*
             if (dbg_logInstructions)
@@ -179,8 +181,7 @@ namespace GreatEscape
 
 
                     //if (m_execLog.AddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
-                    if (DebugHelperAddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
-
+                    if (DebugHelperAddLogInstruction((ushort)p, pc, replayer)) //perhaps more params   ram, this))
                     {
                         //perhaps some other action would be better on memory full condition
                         m_instaExitRequested = true;
@@ -631,11 +632,12 @@ namespace GreatEscape
                 ADD_A_R(instruction);
                 return;
             }
+            /*
             if (instruction == 0)
             {
                 //NOP
                 return;
-            }
+            }*/
             if (instruction == 0xC5)
             {
                 PUSH_BC();
@@ -651,12 +653,14 @@ namespace GreatEscape
                 XOR_N();
                 return;
             }
+            /*
             if (instruction == 0xD3)
             {
                 //OUT (n),A  ignore
+                OUT_N_A();
                 pc++; //skip n
                 return;
-            }
+            }*/
             if (instruction == 0x18)
             {
                 JR();
@@ -717,11 +721,11 @@ namespace GreatEscape
                 XOR_reg();
                 return;
             }
-            if ((instruction & 0b11111000) == 0b10110000)
+            /*if ((instruction & 0b11111000) == 0b1011_0000)
             { // 1010 1rrr  OR r
-                OR_reg(instruction);
+                OR_reg();
                 return;
-            }
+            }*/
             if (instruction == 0x30)
             {
                 JR_NC_rel();
@@ -1368,14 +1372,14 @@ namespace GreatEscape
                 // 1010 1rrr  XOR r
                 OpcodeDecoder = op => (op & 0b11111000) == 0b10101000,
                 Instruction = () => XOR_reg(),
-                //(Func<byte, ExecLogState, Func<ExecLogState, ExecLogState>>)((opc, state) => {
                 Logger = () =>
                 {
 
                     //instructions can works with the opcode being available in the state
-                    //loggingInstructions should capute the opcode. do they?
+                    //loggingInstructions should capure the opcode. do they?
 
                     int r = m_opcode & 7; //capturing the r?
+                    byte capf = f;
 
                     //a = (byte)(a ^ reg_readers[r]());
 
@@ -1386,6 +1390,7 @@ namespace GreatEscape
                         {
                             //we capture nothing
                             st.registersC.a = 0;
+                            st.registersC.f = capf;
                             return st;
                         };
                     }
@@ -1397,6 +1402,7 @@ namespace GreatEscape
                         //Debug.Assert(r != 7, "a should not be used here");
 
                         st.registersC.a = capRezValue;
+                        st.registersC.f = capf;
                         return st;
                     };
 
@@ -1407,6 +1413,52 @@ namespace GreatEscape
 
                 }
             });
+
+            instructions.Add(new InstructionDef
+            {
+                // 1011 0rrr  OR r
+                OpcodeDecoder = op => (op & 0b1111_1000) == 0b1011_0000,
+                Instruction = () => OR_reg(),
+                Logger = () =>
+                {
+                    /*
+                    int r = instruction & 7;
+                    int val = reg_readers[r]();
+
+                    a = (byte)(a | val);
+                    flag_adj_s(a);
+                    flag_adj_z(a);
+                    flag_adj_c(false);*/
+
+                    int r = m_opcode & 7; //capturing the r
+                    byte capf = f;
+
+                    if (r == 7) // A - 111
+                    {
+                        return st =>
+                        {
+                            //we capture nothing
+                            //st.registersC.a = 0;
+                            st.registersC.f = capf;
+                            return st;
+                        };
+                    }
+                    byte capRezValue = a; //just capture the result
+
+                    return st =>
+                    {
+                        st.registersC.a = capRezValue;
+                        st.registersC.f = capf;
+                        return st;
+                    };
+
+                    //reading: reg r, or even memory?
+                    //if r is 110, then H, L, and (HL) memory is read
+                    //if r is 111, (XOR A) then nothing is read, 0 is written is A
+
+                }
+            });
+
 
             instructions.Add(new InstructionDef
             {
@@ -1489,7 +1541,7 @@ namespace GreatEscape
                     */
                     //when the instruction was running because it could have been overwritten by the instruction
                     //in that case, i need an another logger that would run before the instruction itself (a prelogger?)
-                    int capadr = ram[pc] + 256 * ram[pc + 1]; //if i take the adr now, it could be different
+                    int capadr = ram[pc-2] + 256 * ram[pc - 1]; //if i take the adr now, it could be different
                     byte capa = a;
                     return state =>
                     {
@@ -1546,8 +1598,8 @@ namespace GreatEscape
                     {
                         state.registersC.pc = cappc;
                         state.registersC.sp = capsp;
-                        state.ramC[sp] = capmem1;
-                        state.ramC[sp + 1] = capmem2;
+                        state.ramC[capsp] = capmem1;
+                        state.ramC[capsp + 1] = capmem2;
                         return state;
                     };
                 }
@@ -1613,6 +1665,43 @@ namespace GreatEscape
 
 
 
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x00 == op,
+                Instruction = () => { }, //NOP
+                Logger = () =>
+                {
+                    return st => st;
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xD3 == op,
+                Instruction = () => OUT_N_A(), 
+                Logger = () =>
+                {
+                    return st => st;
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x21 == op,
+                Instruction = () => LD_HL_NN(),
+                Logger = () =>
+                {
+                    /*
+                    h = ram[pc + 1];
+                    l = ram[pc];
+                    pc += 2;*/
+                    byte caph = h;
+                    byte capl = l;
+                    return state => {
+                        state.registersC.h = caph;
+                        state.registersC.l = capl;
+                        return state;
+                    };
                 }
             });
 
@@ -2014,9 +2103,9 @@ namespace GreatEscape
             flag_adj_z(a);
             flag_adj_c(false);
         }
-        private void OR_reg(int instruction)
+        private void OR_reg()
         {
-            int r = instruction & 7;
+            int r = m_opcode & 7;
             int val = reg_readers[r]();
 
             a = (byte)(a | val);
@@ -2094,6 +2183,14 @@ namespace GreatEscape
             //flag_adj_z((byte)(a - n));
             cp(n);
         }
+        private void OUT_N_A()
+        {
+            //ignored
+            pc++;
+        }
+
+
+
         private void flag_adj_z(byte x)
         {
             if (x == 0)
@@ -4171,28 +4268,21 @@ namespace GreatEscape
             return DebugUnknownInstruction(0, pc);
         }
 
+        
+
         //this function needs a name
         public string DebugUnknownInstruction(int instruction, int ipc)
         {
             //ipc = original pc at the start of the instruction
             //call external program capturing the output
 
-            //var proc = new Process();
-            //proc.StartInfo.FileName = "C:\\Users\\joe\\Desktop\\z80asm\\z80asm.exe";
-            //proc.StartInfo.Arguments = $"{instruction:X4}";
-            //proc.StartInfo.UseShellExecute = false;
-            //proc.StartInfo.RedirectStandardOutput = true;
-            //proc.Start();
-            //var output = proc.StandardOutput.ReadToEnd();
-            //proc.WaitForExit();
-            //proc.Close();
-            //return output;
+            return  SkoolkitIPC.DisassembleTemp(ipc, m_z80File);
 
+            /* moved to SkoolkitIPC 
             ControlFile.CreateTemporaryFile_ForCrashDissasembly(ipc);
 
             //string ctlText = $"c ${ipc-14:X4} UNK \r\n  ${ipc:X4},2 comment for unknown ins  \r\nD ${ipc+2:X4} commD \r\n@ $800A label=compare_none\r\nC $800E,1 A button was pressed, continue. \r\ni ${ipc+19:X4}";
             //File.WriteAllText("temp.ctl", ctlText);
-
 
             FileInfo fileInfo = new FileInfo(@"G:\cs\Spectrum_emulator\GreatEscape\GreatEscape\bin\Debug\net6.0-windows\yayfuse.z80");
             var dir = fileInfo.DirectoryName;
@@ -4226,15 +4316,8 @@ namespace GreatEscape
             //proc.Close();
             //return output;
 
-
-
-
-
             return output + "\r\n\r\n" + error;
-
-
-
-
+            */
 
         }
 
@@ -4255,8 +4338,12 @@ namespace GreatEscape
             m_instaExitRequested = true;
 
             return m_execLog;
-
         }
+        public ExecLog GetCurrentPartialLog()
+        {
+            return m_execLog;
+        }
+
 
         public override string ToString()
         {
@@ -4290,7 +4377,7 @@ namespace GreatEscape
 
                 Step(out stop_error);
 
-                if (m_instruction_counter % 5000 == 0)
+                if (aam_instruction_counter % 5000 == 0)
                 {
                     scr.Refresh();
                 }
@@ -4323,7 +4410,7 @@ namespace GreatEscape
                 DebugChecks();
 
 
-                if (m_instruction_counter % 5000 == 0)
+                if (aam_instruction_counter % 5000 == 0)
                 {
                     //scr.Refresh();
                 }
