@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection.Emit;
 using System.Text;
+using System.Windows.Controls;
 
 namespace GreatEscape
 {
@@ -23,6 +24,7 @@ namespace GreatEscape
         private string m_z80File;
 
         private byte m_opcode;
+        private byte m_extOpcode; //used for ED, DD... (all four)
         private bool m_execLogEnabled = false;
         private ExecLog m_execLog;
         private ExecLogV1FullSnapshots m_execLogTester;
@@ -63,6 +65,7 @@ namespace GreatEscape
             m_opcode = (byte)instruction;
             pc++;
 
+            
 
             //DEBUG SECTION
             if (p < 16384)
@@ -70,7 +73,7 @@ namespace GreatEscape
                 Debug.Assert(false, "executing empty ROM");
             }
 
-            if (aam_instruction_counter == 0x1e) Debugger.Break();
+            //if (aam_instruction_counter == 0x320) Debugger.Break();
 
             /*
             if (dbg_logInstructions)
@@ -172,27 +175,32 @@ namespace GreatEscape
 
             if (toExecute is null)
             {
+                m_extOpcode = ram[pc++];
                 //try extented
+                //if i increase pc here, the old method will not work?
                 switch (instruction)
                 {
                     case 0xED:
-                        //if i increase pc here, the old method will not work?
-                        int ext_instruction = ram[pc];
-                        pc++;
-                        toExecute = m_ED_opcodes[ext_instruction];
-                        toLog = m_execLogEnabled ? m_ED_loggingOpcodes[ext_instruction] : null;
-
-                        //temp hack workaround
-                        if ( toExecute is null)
-                        {
-                            pc--;
-                        }
+                        toExecute = m_ED_opcodes[m_extOpcode];
+                        toLog = m_execLogEnabled ? m_ED_loggingOpcodes[m_extOpcode] : null;
+                        break;
+                    case 0xDD: //IX instructions
+                        toExecute = m_DD_opcodes[m_extOpcode];
+                        toLog = m_execLogEnabled ? m_DD_loggingOpcodes[m_extOpcode] : null;
                         break;
                     default:
                         //normal instructions not handled by the table will end up here
                         //Debugger.Break(); //should stop on all others?
                         break;
                 }
+
+                //temp hack workaround
+                if (toExecute is null)
+                {
+                    pc--;
+                }
+
+
 
             }
 
@@ -282,12 +290,12 @@ namespace GreatEscape
                 DEC_A();
                 return;
             }
-            if ((instruction & 0xC7) == 0x06)
+            /*if ((instruction & 0xC7) == 0x06)
             {
                 // 00rr r110  LD r, n
                 LD_reg_n(instruction); //and register 
                 return;
-            }
+            }*/
             if (instruction == 0x26)
             {
                 Debugger.Break(); //this should never be reached because it should be handled in the universal LD_reg_n();
@@ -419,12 +427,12 @@ namespace GreatEscape
                 return;
             }*/
 
-            if ((instruction & 0xF8) == 0xA0) //take higher 5 bits and compare
+            /*if ((instruction & 0xF8) == 0xA0) //take higher 5 bits and compare 1111 1000 1010 0000
             {
                 // 1010 0rrr   AND r
                 AND_reg(instruction); //and register 
                 return;
-            }
+            }*/
 
             /*if (instruction == 0x28)
             {
@@ -652,11 +660,11 @@ namespace GreatEscape
                 INC_HL();
                 return;
             }
-            if (instruction == 0x22)
+            /*if (instruction == 0x22)
             {
                 LD_NNI_HL();
                 return;
-            }
+            }*/
             if (instruction == 0x20)
             {
                 JR_NZ_E();
@@ -673,16 +681,17 @@ namespace GreatEscape
                 //NOP
                 return;
             }*/
-            if (instruction == 0xC5)
+
+            /*if (instruction == 0xC5)
             {
                 PUSH_BC();
                 return;
-            }
-            if (instruction == 0xC1)
+            }*/
+            /*if (instruction == 0xC1)
             {
                 POP_BC();
                 return;
-            }
+            }*/
             if (instruction == 0xEE)
             {
                 XOR_N();
@@ -731,11 +740,11 @@ namespace GreatEscape
                 ADD_A_n();
                 return;
             }
-            if ((instruction & 0b11000111) == 0b11000100)
+            /*if ((instruction & 0b11000111) == 0b11000100)
             { // 11cc c100  CALL cc, pq
                 CALL_CC_NN(instruction);
                 return;
-            }
+            }*/
             if (instruction == 0xF3)
             {
                 DI();
@@ -950,14 +959,14 @@ namespace GreatEscape
             //IX instructions
             if (instruction == 0xDD)
             {
-                int ix_instruction = ram[pc];
-                pc++;
+                int ix_instruction = ram[pc++];  //just for this obsolete list
+                m_extOpcode = (byte)(ix_instruction);  //all new inst versions will use this
 
-                if ((ix_instruction & 0b11000111) == 0b01000110)
+                /*if ((ix_instruction & 0b11000111) == 0b01000110)
                 {// 01rr r110  LD r, (IX+d)
-                    LD_r_IXb(ix_instruction);
+                    LD_r_IXb();
                     return;
-                }
+                }*/
                 if (ix_instruction == 0x21)
                 {
                     LD_IX_NN();
@@ -1259,6 +1268,9 @@ namespace GreatEscape
         Action[] m_ED_opcodes;
         LogStateMaker[] m_ED_loggingOpcodes; //set type after usage
 
+        Action[] m_DD_opcodes;
+        LogStateMaker[] m_DD_loggingOpcodes; //set type after usage
+
 
         //xx public delegate Func<ExecLogState, ExecLogState> LogStateMaker(byte op, ExecLogState s);
 
@@ -1287,10 +1299,13 @@ namespace GreatEscape
             
             m_ED_opcodes = new Action[256];
             m_ED_loggingOpcodes = new LogStateMaker[256];
-            InitializeOpcodeArray_Loop(GenerateEDOpcodeList(), m_ED_opcodes, m_ED_loggingOpcodes);
-            
+            InitializeOpcodeArray_Loop(Generate_ED_OpcodeList(), m_ED_opcodes, m_ED_loggingOpcodes);
 
-            
+            m_DD_opcodes = new Action[256];
+            m_DD_loggingOpcodes = new LogStateMaker[256];
+            InitializeOpcodeArray_Loop(Generate_DD_OpcodeList(), m_DD_opcodes, m_DD_loggingOpcodes);
+
+
 
             /* loop moved to a separate method
             foreach (var def in GenerateOpcodeList())
@@ -1426,7 +1441,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => op == 0x25,
-                Instruction = () => I_DecH(),
+                Instruction = I_DecH,
                 Logger = () =>
                 {
 
@@ -1452,10 +1467,9 @@ namespace GreatEscape
 
             instructions.Add(new InstructionDef
             {
-
                 // 1010 1rrr  XOR r
                 OpcodeDecoder = op => (op & 0b11111000) == 0b10101000,
-                Instruction = () => XOR_reg(),
+                Instruction = XOR_reg,
                 Logger = () =>
                 {
 
@@ -1500,9 +1514,53 @@ namespace GreatEscape
 
             instructions.Add(new InstructionDef
             {
+                // 1010 0rrr  AND r
+                OpcodeDecoder = op => (op & 0b1111_1000) == 0b1010_0000,
+                Instruction = AND_reg,
+                Logger = () =>
+                {
+
+                    //instructions can works with the opcode being available in the state
+                    //loggingInstructions should capure the opcode. do they?
+
+                    //full code
+                    //int r = m_opcode & 7;
+                    //int val = reg_readers[r]();
+
+                    //a = (byte)(a & val);
+
+                    byte capa = a;
+                    byte capf = f;
+                    //int r = m_opcode & 7; //capturing the r? needed if we log the reg usage as well
+
+                    /*
+                    if (r == 7) // A - 111
+                    {
+                        return st =>
+                        {
+                            //we capture nothing
+                            st.registersC.a = 0;
+                            st.registersC.f = capf;
+                            return st;
+                        };
+                    }*/
+                    return st =>
+                    {
+                        st.registersC.a = capa;
+                        st.registersC.f = capf;
+                        return st;
+                    };
+                }
+            });
+
+
+
+
+            instructions.Add(new InstructionDef
+            {
                 // 1011 0rrr  OR r
                 OpcodeDecoder = op => (op & 0b1111_1000) == 0b1011_0000,
-                Instruction = () => OR_reg(),
+                Instruction = OR_reg,
                 Logger = () =>
                 {
                     /*
@@ -1547,7 +1605,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xDB == op,
-                Instruction = () => IN_A_N(),
+                Instruction = IN_A_N,
                 Logger = () =>
                 {
                     byte capa = a;
@@ -1562,7 +1620,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xE6 == op,
-                Instruction = () => AND_N(),
+                Instruction = AND_N,
                 Logger = () =>
                 {
                     byte capa = a;
@@ -1579,7 +1637,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xFE == op,
-                Instruction = () => CP_N(),
+                Instruction = CP_N,
                 Logger = () =>
                 {
                     /*
@@ -1594,7 +1652,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x28 == op,
-                Instruction = () => JR_Z_E(),
+                Instruction = JR_Z_E,
                 Logger = () =>
                 {
                     /*
@@ -1616,7 +1674,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x32 == op,
-                Instruction = () => LD_NNI_A(),
+                Instruction = LD_NNI_A,
                 Logger = () =>
                 {
                     /*      int adr = ram[pc] + 256 * ram[pc + 1];
@@ -1638,7 +1696,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x31 == op,
-                Instruction = () => LD_SP_NN(),
+                Instruction = LD_SP_NN,
                 Logger = () =>
                 {
                     /*      
@@ -1654,24 +1712,27 @@ namespace GreatEscape
                     };
                 }
             });
+
+            /* LD_reg_n handles this case
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x3E == op,
-                Instruction = () => LD_A_N(),
+                Instruction = LD_A_N,
                 Logger = () =>
                 {
-                    /*byte capa = a;
-                    return state => {
-                        state.registersC.a = capa;
-                        return state;
-                    };*/
+                    //byte capa = a;
+                    //return state => {
+                    //    state.registersC.a = capa;
+                    //    return state;
+                    //};
                     return modifyA();
                 }
-            });
+            });*/
+
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xCD == op,
-                Instruction = () => CALL_NN(),
+                Instruction = CALL_NN,
                 Logger = () =>
                 {
                     ushort cappc = pc;
@@ -1690,8 +1751,34 @@ namespace GreatEscape
             });
             instructions.Add(new InstructionDef
             {
+                OpcodeDecoder = op => (op & 0b11000111) == 0b11000100,
+                Instruction = CALL_CC_NN,
+                Logger = () =>
+                {
+                    //this is a strange one, if we want to distinguish between call and no-call history
+                    //right now, we just blindly copy regs and top of the stack
+                    ushort cappc = pc;
+                    ushort capsp = sp;
+                    byte capmem1 = ram[sp];
+                    byte capmem2 = ram[sp + 1];
+                    //perhaps we can tell from checking the top of the stack content?
+                    return state =>
+                    {
+                        state.registersC.pc = cappc;
+                        state.registersC.sp = capsp;
+                        state.ramC[capsp] = capmem1;
+                        state.ramC[capsp + 1] = capmem2;
+                        return state;
+                    };
+                }
+            });
+
+
+
+            instructions.Add(new InstructionDef
+            {
                 OpcodeDecoder = op => 0xC9 == op,
-                Instruction = () => RET(),
+                Instruction = RET,
                 Logger = () =>
                 {
                     /*
@@ -1711,7 +1798,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x3A == op,
-                Instruction = () => LD_A_NNI(),
+                Instruction = LD_A_NNI,
                 Logger = () =>
                 {
                     return modifyA();
@@ -1722,7 +1809,7 @@ namespace GreatEscape
             {
                 //01 rrr xxx
                 OpcodeDecoder = op => (op & 0xC0) == 0x40,
-                Instruction = () => LD_R_RPRIME(),
+                Instruction = LD_R_RPRIME,
                 Logger = () =>
                 {
 
@@ -1763,7 +1850,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0xD3 == op,
-                Instruction = () => OUT_N_A(), 
+                Instruction = OUT_N_A, 
                 Logger = () =>
                 {
                     return st => st;
@@ -1772,7 +1859,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x21 == op,
-                Instruction = () => LD_HL_NN(),
+                Instruction = LD_HL_NN,
                 Logger = () =>
                 {
                     /*
@@ -1792,7 +1879,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x11 == op,
-                Instruction = () => LD_DE_NN(),
+                Instruction = LD_DE_NN,
                 Logger = () =>
                 {
                     byte capd = d;
@@ -1807,7 +1894,7 @@ namespace GreatEscape
             instructions.Add(new InstructionDef
             {
                 OpcodeDecoder = op => 0x01 == op,
-                Instruction = () => LD_BC_NN(),
+                Instruction = LD_BC_NN,
                 Logger = () =>
                 {
                     byte capb = b;
@@ -1816,6 +1903,105 @@ namespace GreatEscape
                         state.registersC.b = capb;
                         state.registersC.c = capc;
                         return state;
+                    };
+                }
+            });
+
+            //huopsky powod
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => (op & 0xC7) == 0x06,
+                Instruction = LD_reg_n,
+                Logger = () =>
+                {
+                    /* inst            
+                        int r = (instruction / 8) & 7;
+                        byte val = ram[pc]; pc++;
+                        reg_writers[r](val);
+                    */
+
+                    //special case for logging LD (HL), N
+                    //is it really needed?
+                    int capr = (m_opcode / 8) & 7;
+                    byte capval = ram[pc - 1];
+
+                    if( capr == 6) //(HL)
+                    {
+                        ushort caphl = (ushort)(h * 256 + l);
+                        return state =>
+                        {
+                            state.ramC[caphl] = capval;
+                            return state;
+                        };
+                    }
+                    //normal regs
+                    return st =>
+                    {
+                        ExecLogState.st_reg_writers[capr](capval, st.ramC, st.registersC);
+                        return st;
+                    };
+                }
+            });
+
+
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x22 == op,
+                Instruction = LD_NNI_HL,
+                Logger = () =>
+                {
+                    // inst            
+                    //    int adr = ram[pc] + 256 * ram[pc + 1];
+                    //    pc += 2;
+                    //    ram[adr] = l;
+                    //    ram[adr + 1] = h;
+
+                    ushort capadr = (ushort)(ram[pc - 2] + 256 * ram[pc - 1]);
+                    byte caph = h;
+                    byte capl = l;
+                    
+                    return st =>
+                    {
+                        st.ramC[capadr] = capl;
+                        st.ramC[capadr+1] = caph;
+                        return st;
+                    };
+                }
+            });
+
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xC5 == op,
+                Instruction = PUSH_BC,
+                Logger = () =>
+                {
+                    byte capb = b;
+                    byte capc = c;
+                    ushort capsp = sp;
+                    return st =>
+                    {
+                        st.registersC.sp = capsp;
+                        st.ramC[capsp] = capc;
+                        st.ramC[capsp + 1] = capb;
+                        return st;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0xC1 == op,
+                Instruction = POP_BC,
+                Logger = () =>
+                {
+                    byte capb = b;
+                    byte capc = c;
+                    ushort capsp = sp;
+                    return st =>
+                    {
+                        st.registersC.sp = capsp;
+                        st.registersC.c = st.ramC[capsp - 2];
+                        st.registersC.b = st.ramC[capsp - 1];
+                        return st;
                     };
                 }
             });
@@ -1905,7 +2091,7 @@ namespace GreatEscape
 
         //11111111111111111111111111111
 
-        private List<InstructionDef> GenerateEDOpcodeList()  //instruction def object
+        private List<InstructionDef> Generate_ED_OpcodeList()  //instruction def object
         {
             List<InstructionDef> instructions = new()
             {
@@ -1955,10 +2141,58 @@ namespace GreatEscape
             return instructions;
         } //end GenerateEDOpcodeList
 
-            //2222222222222222222222222222222222222222
+
+        
+
+        private List<InstructionDef> Generate_DD_OpcodeList()  //IX instructions
+        {
+            List<InstructionDef> instructions = new()
+            {
+                new InstructionDef
+                {
+                    OpcodeDecoder = op => op == 0x21,
+                    Instruction =  LD_IX_NN,
+                    Logger = () =>
+                    {
+                        ushort capix = ix;
+                        return st =>
+                        {
+                            st.registersC.ix = capix;
+                            return st;
+                        };
+                    }
+                },
+                new InstructionDef
+                {
+                    OpcodeDecoder = op => (op & 0b1100_0111) == 0b0100_0110,
+                    Instruction =  LD_r_IXb,
+                    Logger = () =>
+                    {
+                        sbyte b = (sbyte)ram[pc-1];
+                        int capr = (m_extOpcode / 8) & 7;
+                        int capadr = ix + b;
+                        byte capval = ram[capadr];
+                        return st =>
+                        {
+                            ExecLogState.st_reg_writers[capr](capval, st.ramC, st.registersC);
+                            return st;
+                        };
+                    }
+                },
 
 
-            #region Instructions
+            };
+
+
+
+            return instructions;
+        } //end Generate_DD_OpcodeList
+
+
+
+
+
+        #region Instructions
         private void I_DecH()
         {
 
@@ -2253,9 +2487,9 @@ namespace GreatEscape
         }
 
 
-        private void AND_reg(int instruction)
+        private void AND_reg()
         {
-            int r = instruction & 7;
+            int r = m_opcode & 7;
             int val = reg_readers[r]();
 
             a = (byte)(a & val);
@@ -2548,9 +2782,9 @@ namespace GreatEscape
         }
 
 
-        private void LD_reg_n(int instruction)
+        private void LD_reg_n()
         {
-            int r = (instruction / 8) & 7;
+            int r = (m_opcode / 8) & 7;
             byte val = ram[pc]; pc++;
             reg_writers[r](val);
         }
@@ -2572,12 +2806,13 @@ namespace GreatEscape
             pc += 1;
             h = n;
         }
-        private void LD_A_N()
+        
+        /*private void LD_A_N()  //LD_reg_n already handles this case
         {
             byte n = ram[pc];
             pc += 1;
             a = n;
-        }
+        }*/
 
         //hack, we need the same R value as the X processor, to be able to keep comparing states
         //so, either recreate complete R logic, or just copy from X
@@ -2829,12 +3064,12 @@ namespace GreatEscape
 
         }
 
-        private void CALL_CC_NN(int instruction)
+        private void CALL_CC_NN()
         {
             // 11cc c100  CALL cc, pq
 
             //call on condition
-            int condition = (instruction / 8) & 7;
+            int condition = (m_opcode / 8) & 7;
             switch (condition)
             {
                 case 1:  //Z
@@ -3446,10 +3681,10 @@ namespace GreatEscape
         }
 
 
-        private void LD_r_IXb(int ix_instruction)
+        private void LD_r_IXb()
         {
             sbyte b = (sbyte)ram[pc]; pc++;
-            int r = (ix_instruction / 8) & 7;
+            int r = (m_extOpcode / 8) & 7;
             int adr = ix + b;    //assuming b is always positive, turns out it was a wrong assumption
             byte val = ram[adr];
             reg_writers[r](val);

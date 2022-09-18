@@ -1125,6 +1125,8 @@ namespace GreatEscape
                 {
                     //log test failed
                     Debugger.Break();
+
+                    //if pcs are different, it means we run into an instruction without logger
                 }
 
             } while (true);
