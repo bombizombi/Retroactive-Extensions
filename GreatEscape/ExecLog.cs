@@ -338,7 +338,7 @@ namespace GreatEscape
                 //var dumState = ExecLogState.Empty;
                 var state = _LogEntries[0].replayInstruction(dumState);
 
-                var x = 0x5fe6;
+                //var x = 0x5fe6;
                 //Debug.WriteLine($"log 0 5FE6 = {state.ramC[0x5FE6]}");
 
                 for (int i = 1; i <= index; i++)

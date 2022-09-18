@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Reflection.Emit;
 using System.Text;
 
 namespace GreatEscape
@@ -69,7 +70,7 @@ namespace GreatEscape
                 Debug.Assert(false, "executing empty ROM");
             }
 
-            //if (aam_instruction_counter == 0xb) Debugger.Break();
+            if (aam_instruction_counter == 0x1e) Debugger.Break();
 
             /*
             if (dbg_logInstructions)
@@ -161,7 +162,39 @@ namespace GreatEscape
 
 
             var toExecute = m_opcodes[instruction];
+            var toLog = m_execLogEnabled ? m_loggingOpcodes[instruction] : null;
 
+
+            //extended instructions in the switch?
+            //extended log instructions?  when reading the action for instruction, always
+            //take the logaction as well
+
+
+            if (toExecute is null)
+            {
+                //try extented
+                switch (instruction)
+                {
+                    case 0xED:
+                        //if i increase pc here, the old method will not work?
+                        int ext_instruction = ram[pc];
+                        pc++;
+                        toExecute = m_ED_opcodes[ext_instruction];
+                        toLog = m_execLogEnabled ? m_ED_loggingOpcodes[ext_instruction] : null;
+
+                        //temp hack workaround
+                        if ( toExecute is null)
+                        {
+                            pc--;
+                        }
+                        break;
+                    default:
+                        //normal instructions not handled by the table will end up here
+                        //Debugger.Break(); //should stop on all others?
+                        break;
+                }
+
+            }
 
 
             if (toExecute is not null)
@@ -173,11 +206,13 @@ namespace GreatEscape
 
                 if (m_execLogEnabled)
                 {
-                    //xx;
-                    var x = m_loggingOpcodes[instruction];
+                    Debug.Assert(toLog is not null, "Take log action at the same moment when taking normal action.");
+                    //var x = m_loggingOpcodes[instruction];
+
+
                     //var replayer = x();
                     //Func<ExecLogState, ExecLogState> replayer = x();
-                    Func<ExecLogState, ExecLogState> replayer = DebugHelperCreateLogRep(x);
+                    Func<ExecLogState, ExecLogState> replayer = DebugHelperCreateLogRep(toLog);
 
 
                     //if (m_execLog.AddLogInstruction((ushort)p, replayer)) //perhaps more params   ram, this))
@@ -269,11 +304,11 @@ namespace GreatEscape
                 CALL_NN();
                 return;
             }*/
-            if (instruction == 0x01)
+            /*if (instruction == 0x01)
             {
                 LD_BC_NN();
                 return;
-            }
+            }*/
             if (instruction == 0x1E)
             {
                 LD_E_N();
@@ -462,11 +497,11 @@ namespace GreatEscape
                 CP_HLI();
                 return;
             }
-            if (instruction == 0x11)
+            /*if (instruction == 0x11)
             {
                 LD_DE_NN();
                 return;
-            }
+            }*/
             if (instruction == 0xE1)
             {
                 POP_HL();
@@ -1221,6 +1256,8 @@ namespace GreatEscape
         Action[] m_opcodes;
         LogStateMaker[] m_loggingOpcodes; //set type after usage
 
+        Action[] m_ED_opcodes;
+        LogStateMaker[] m_ED_loggingOpcodes; //set type after usage
 
 
         //xx public delegate Func<ExecLogState, ExecLogState> LogStateMaker(byte op, ExecLogState s);
@@ -1243,7 +1280,19 @@ namespace GreatEscape
             //fill the opcode logger table
             m_opcodes = new Action[256];
             m_loggingOpcodes = new LogStateMaker[256];
+            InitializeOpcodeArray_Loop(GenerateOpcodeList(), m_opcodes, m_loggingOpcodes);
 
+
+            //ED instructions
+            
+            m_ED_opcodes = new Action[256];
+            m_ED_loggingOpcodes = new LogStateMaker[256];
+            InitializeOpcodeArray_Loop(GenerateEDOpcodeList(), m_ED_opcodes, m_ED_loggingOpcodes);
+            
+
+            
+
+            /* loop moved to a separate method
             foreach (var def in GenerateOpcodeList())
             {
                 //detect opcodes that this instruction understands
@@ -1251,6 +1300,8 @@ namespace GreatEscape
                 {
                     if (def.OpcodeDecoder((byte)i))
                     {
+                        Debug.Assert(m_opcodes[i] == null, "don't overwrite opcodes");
+
                         m_opcodes[i] = def.Instruction;
                         m_loggingOpcodes[i] = def.Logger;
 
@@ -1266,8 +1317,41 @@ namespace GreatEscape
 
                 }
             }
+            */
 
         }
+
+
+        private void InitializeOpcodeArray_Loop(IEnumerable<InstructionDef> generator, 
+                                                Action[] destOpcodes, 
+                                                LogStateMaker[] destLoggers )
+        {
+            foreach (var def in generator)
+            {
+                //detect opcodes that this instruction understands
+                for (int i = 0; i< 256; i++)
+                {
+                    if (def.OpcodeDecoder((byte) i))
+                    {
+                        Debug.Assert(destOpcodes[i] == null, "don't overwrite opcodes");
+
+                        destOpcodes[i] = def.Instruction;
+                        destLoggers[i] = def.Logger;
+
+                        //debug
+                        //string name = def.Instruction.Method.Name;  DB
+                        string name = def.Logger.Method.Name;
+                        string nameInst = def.Instruction.Method.Name;
+                        string nDec = def.OpcodeDecoder.Method.Name;
+                        Debug.WriteLine($"op: {i:X2} logr: {name}       ins:{nameInst}   dec:{nDec}");
+                        //def.Logger.Target.GetType().Name      Spectrum
+                    }
+                }
+            }
+        }
+
+
+
 
 
         //logger helpers
@@ -1705,6 +1789,37 @@ namespace GreatEscape
                 }
             });
 
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x11 == op,
+                Instruction = () => LD_DE_NN(),
+                Logger = () =>
+                {
+                    byte capd = d;
+                    byte cape = e;
+                    return state => {
+                        state.registersC.d = capd;
+                        state.registersC.e = cape;
+                        return state;
+                    };
+                }
+            });
+            instructions.Add(new InstructionDef
+            {
+                OpcodeDecoder = op => 0x01 == op,
+                Instruction = () => LD_BC_NN(),
+                Logger = () =>
+                {
+                    byte capb = b;
+                    byte capc = c;
+                    return state => {
+                        state.registersC.b = capb;
+                        state.registersC.c = capc;
+                        return state;
+                    };
+                }
+            });
+
 
 
 
@@ -1788,6 +1903,62 @@ namespace GreatEscape
             return instructions;
         }//end GenerateInstructionsList 
 
+        //11111111111111111111111111111
+
+        private List<InstructionDef> GenerateEDOpcodeList()  //instruction def object
+        {
+            List<InstructionDef> instructions = new()
+            {
+                new InstructionDef
+                {
+                    OpcodeDecoder = op => op == 0xB0,
+                    //Instruction = () => LDIR(),
+                    Instruction =  LDIR,
+                    Logger = () =>
+                    {
+                        /* full inst        
+                        int hl = h * 256 + l;
+                        int bc = b * 256 + c;
+                        int de = d * 256 + e;
+
+                        ram[de] = ram[hl];
+                        de++; hl++;
+                        bc--;
+                        if( bc > 0) { pc--; pc--; }
+
+                        d = (byte)(de / 256); e = (byte)(de % 256);
+                        b = (byte)(bc / 256); c = (byte)(bc % 256);
+                        h = (byte)(hl / 256); l = (byte)(hl % 256);*/
+
+                        //as usual, we are logging after the instruction
+                        byte capData = ram[ h * 256 + l - 1];
+                        byte capd = d;
+                        byte cape = e;
+                        byte capb = b;
+                        byte capc = c;
+                        byte caph = h;
+                        byte capl = l;
+                        return state => {
+                            state.ramC[ capd * 256 + cape - 1] = capData;
+                            state.registersC.d = capd;
+                            state.registersC.e = cape;
+                            state.registersC.b = capb;
+                            state.registersC.c = capc;
+                            state.registersC.h = caph;
+                            state.registersC.l = capl;
+                            return state;
+                        };
+                    }
+                }
+            };
+
+            return instructions;
+        } //end GenerateEDOpcodeList
+
+            //2222222222222222222222222222222222222222
+
+
+            #region Instructions
         private void I_DecH()
         {
 
@@ -3197,7 +3368,7 @@ namespace GreatEscape
             h = (byte)(hl / 256); l = (byte)(hl % 256);
         }
 
-        private void LDIR()
+        private void LDIRold()
         {
             int hl = h * 256 + l;
             int bc = b * 256 + c;
@@ -3209,6 +3380,21 @@ namespace GreatEscape
                 de++; hl++;
                 bc--;
             } while (bc > 0);
+            d = (byte)(de / 256); e = (byte)(de % 256);
+            b = (byte)(bc / 256); c = (byte)(bc % 256);
+            h = (byte)(hl / 256); l = (byte)(hl % 256);
+        }
+        private void LDIR()
+        {
+            int hl = h * 256 + l;
+            int bc = b * 256 + c;
+            int de = d * 256 + e;
+
+            ram[de] = ram[hl];
+            de++; hl++;
+            bc--;
+            if( bc > 0) { pc--; pc--; }
+            
             d = (byte)(de / 256); e = (byte)(de % 256);
             b = (byte)(bc / 256); c = (byte)(bc % 256);
             h = (byte)(hl / 256); l = (byte)(hl % 256);
@@ -3472,7 +3658,7 @@ namespace GreatEscape
             flag_adj_s(a);
         }
 
-
+        #endregion  
 
 
 

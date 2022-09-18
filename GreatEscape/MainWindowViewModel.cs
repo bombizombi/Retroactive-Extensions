@@ -24,9 +24,7 @@ using System.Xaml;
 using CommunityToolkit.Mvvm;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Net.WebRequestMethods;
-using File = System.IO.File;
+//using static System.Net.Mime.MediaTypeNames;
 
 namespace GreatEscape
 {
@@ -227,10 +225,10 @@ namespace GreatEscape
 
             for (int i = 0; i < steps; i++)
             {
-
-                //changing the order, should be the same, if not for the R register hack
+                //if (i == 0x1d) Debugger.Break();
 
                 //TODO see what is this
+                //changing the order, should be the same, if not for the R register hack
                 XStepMeansStep();
                 m_zx.Step( out stop_error);
 
@@ -703,6 +701,48 @@ namespace GreatEscape
         private bool freshLDIR = true;
         private void XStepMeansStep()
         {
+
+            do
+            {
+                procX.Step();
+            } while (procX.getContext().prefix != 0);
+
+            /*
+            bool resetToFreshLDIR = false;
+            //also do a major do loop that handles LDIR
+            bool over = true;
+            do
+            {
+                over = true;
+                do
+                {
+                    procX.Step();
+                } while (procX.getContext().prefix != 0);
+                //this completes our full instruction, or just one step of LDIR, in that case we will be back on the LDIR
+
+                ushort pc = procX.getContext().pc.w;
+                byte instr = procX.getContext().mem.Read(null, pc, false);
+                byte instr2 = procX.getContext().mem.Read(null, (ushort)(pc + 1), false);
+                if ((instr == 0xED) && ((instr2 == 0xB0) || (instr2 == 0xB8)))   //LDIR or LDDR
+                {
+                    if (freshLDIR)
+                    {
+                        freshLDIR = false;
+                    }
+                    else
+                    {
+                        //Debugger.Break();
+                        over = false; //its not over
+                        resetToFreshLDIR = true;
+                    }
+                }
+
+            } while (!over);
+            if (resetToFreshLDIR) freshLDIR = true;
+            */
+        }
+        private void XStepMeansStepOLD()
+        {
             bool resetToFreshLDIR = false;
             //also do a major do loop that handles LDIR
             bool over = true;
@@ -735,6 +775,8 @@ namespace GreatEscape
             } while (!over);
             if (resetToFreshLDIR) freshLDIR = true;
         }
+
+
 
 
         internal void StartExecLog()
@@ -1055,34 +1097,39 @@ namespace GreatEscape
 
         internal void StepWithTests()
         {
-            //do log test after each step
-
-            bool abortRequest = LoopX(1);
-            Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
-
-            //update dis
-            Disassemble();  //fill yellow the old way
-            var disLines = m_skoolkit.Disassemble(m_zx.pc);
-            EditableDis = disLines;
-
-
-            //get the last log entry, compare with current state
-            var log = m_zx.GetCurrentPartialLog();
-            int size = log.LogEntries.Count();
-            var lastEntry = log[size - 1];
-
-            var stateSame = lastEntry.CompareToSpectrumState(m_zx);
-
-            //Debug.Assert(stateSame, "Log and current state are different.");
-            if( !stateSame)
+            do
             {
-                //log test failed
-                Debugger.Break();
-            }
+
+                //do log test after each step
+
+                bool abortRequest = LoopX(1);
+                Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
 
 
+                //update dis
+                /* too slow
+                Disassemble();  //fill yellow the old way
+                var disLines = m_skoolkit.Disassemble(m_zx.pc);
+                EditableDis = disLines;*/
 
 
+                //get the last log entry, compare with current state
+                var log = m_zx.GetCurrentPartialLog();
+                int size = log.LogEntries.Count();
+                var lastEntry = log[size - 1];
+
+                var stateSame = lastEntry.CompareToSpectrumState(m_zx);
+
+                //Debug.Assert(stateSame, "Log and current state are different.");
+                if (!stateSame)
+                {
+                    //log test failed
+                    Debugger.Break();
+                }
+
+            } while (true);
+
+            int a123 = 123;
 
         }
 
