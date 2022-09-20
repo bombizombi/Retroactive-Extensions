@@ -8,8 +8,164 @@ using System.Windows.Input;
 
 namespace GreatEscape
 {
+
+
     public class Keyboard
     {
+        protected Dictionary<long, byte> m_recordingLog;
+
+        public Keyboard()
+        {
+            m_recordingLog = new Dictionary<long, byte>();
+        }
+
+
+        public virtual bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
+        {
+            //instructionCount used for recording replaying
+
+            bool rez = ReadInPort(portH, portL, out a);
+
+            Dictionary<long, byte> m_recordingLog = new Dictionary<long, byte>();
+
+            Debug.Assert(!m_recordingLog.ContainsKey(instructionCount), "two instructions with the same instCount");
+
+            m_recordingLog[instructionCount] = a;
+            return rez;
+
+        }
+
+        public virtual void Overwrite_R_RegisterValue(ref byte a, long instructionCount)
+        {
+            //recording version
+
+
+        }
+
+
+
+        public bool ReadInPort(int portH, int portL, out byte a)
+        {
+
+            //you should be able to press two keys at once in the same segment
+            int retvalue = 0x1F;
+
+            //read zx spectrum keys, only some combos of b and c will be valid
+            if (portL == 0xFE) //all key ports share this c
+            {
+                switch (portH)
+                {
+                    case 0xF7:
+                        if (key1) { a = 0b11110; return true; }
+                        if (key2) { a = 0b11101; return true; }
+                        if (key3) { a = 0b11011; return true; }
+                        if (key4) { a = 0b10111; return true; }
+                        if (key5) { a = 0b01111; return true; }
+                        break;
+                    case 0xEF:
+                        if (key0) { a = 0b11110; return true; }
+                        if (key9) { a = 0b11101; return true; }
+                        if (key8) { a = 0b11011; return true; }
+                        if (key7) { a = 0b10111; return true; }
+                        if (key6) { a = 0b01111; return true; }
+                        break;
+                    case 0xFB:   //Q W E R T
+                        if (keyQ) { a = 0b11110; return true; }
+                        if (keyW) { a = 0b11101; return true; }
+                        if (keyE) { a = 0b11011; return true; }
+                        if (keyR) { a = 0b10111; return true; }
+                        if (keyT) { a = 0b01111; return true; }
+                        break;
+                    case 0xDF:
+                        //if (keyP) { a = 0b11110; return true; }
+                        //if (keyO) { a = 0b11101; return true; }
+                        //if (keyI) { a = 0b11011; return true; }
+                        //if (keyU) { a = 0b10111; return true; }
+                        //if (keyY) { a = 0b01111; return true; }
+                        if (keyP) retvalue &= 0b11110;
+                        if (keyO) retvalue &= 0b11101;
+                        if (keyI) retvalue &= 0b11011;
+                        if (keyU) retvalue &= 0b10111;
+                        if (keyY) retvalue &= 0b01111;
+                        a = (byte)retvalue; return true;
+                        break;
+                    case 0xFD:   //A S D F G
+                        if (keyA) { a = 0b11110; return true; }
+                        if (keyS) { a = 0b11101; return true; }
+                        if (keyD) { a = 0b11011; return true; }
+                        if (keyF) { a = 0b10111; return true; }
+                        if (keyG) { a = 0b01111; return true; }
+                        break;
+                    case 0xBF:   //enter, L K J H
+                        //this will not work for more than one key in this segment
+                        if (keyEnter) { a = 0b11110; return true; }
+                        if (keyL) { a = 0b11101; return true; }
+                        if (keyK) { a = 0b11011; return true; }
+                        if (keyJ) { a = 0b10111; return true; }
+                        if (keyH) { a = 0b01111; return true; }
+                        break;
+                    case 0x7F:
+                        if (keySpace) { a = 0b11110; return true; }
+                        if (keySymbol) { a = 0b11101; return true; }
+                        if (keyM) { a = 0b11011; return true; }
+                        if (keyN) { a = 0b10111; return true; }
+                        if (keyB) { a = 0b01111; return true; }
+                        break;
+                    case 0xFE:
+
+                        if (keyCaps) { a = 0b11110; return true; }
+                        if (keyZ) { a = 0b11101; return true; }
+                        if (keyX) { a = 0b11011; return true; }
+                        if (keyC) { a = 0b10111; return true; }
+                        if (keyV) { a = 0b01111; return true; }
+
+
+                        //if (keyBreak) {  a = 0b11110; return true; }
+                        break;
+
+                    case 0x0: //in the case of "any" key, the "1" will be that "any key"
+                        //always return true; (for penetrator quick start)
+                        //a = 0b11110; return true;
+
+                        if (key1)
+                        {
+                            a = 0x1E;  //all 5 bits on except the last (key 1)
+                            a = 0b11110;
+                            return true;
+                        }
+                        break;
+                    case 0x7E:   //port of unknown origin, lets return 0x1f and hope for the best
+                        a = 0b11111;
+                        return true;
+
+                    default:
+                        Debug.Assert(false, "unknown FE port");
+                        Debugger.Break();
+                        break;
+
+                }
+
+            }
+            //  bit 0     1   2 3 4 
+
+            //FEFE  shift Z   X C V
+            //FDFE  A     S   D F G
+            //FBFE  Q     W   E R T
+            //F7FE  1     2   3 4 5
+            //EFFE  0     9   8 7 6
+            //DFFE  P     O   I U Y
+            //BFFE  enter L   K J H
+            //7FFE  space Sym M N B
+
+            //what happens with this false 
+            a = 0;
+            return false;
+
+        }
+
+
+
+
         private bool key1 = false;
         private bool key2 = false;
         private bool key3 = false;
@@ -126,124 +282,6 @@ namespace GreatEscape
 
 
 
-        public bool ReadInPort(int portH, int portL, out byte a)
-        {
-            //you should be able to press two keys at once in the same segment
-            int retvalue = 0x1F;
-
-            //read zx spectrum keys, only some combos of b and c will be valid
-            if (portL == 0xFE) //all key ports share this c
-            {
-                switch (portH)
-                {
-                    case 0xF7:
-                        if (key1) { a = 0b11110; return true; }
-                        if (key2) { a = 0b11101; return true; }
-                        if (key3) { a = 0b11011; return true; }
-                        if (key4) { a = 0b10111; return true; }
-                        if (key5) { a = 0b01111; return true; }
-                        break;
-                    case 0xEF:
-                        if (key0) { a = 0b11110; return true; }
-                        if (key9) { a = 0b11101; return true; }
-                        if (key8) { a = 0b11011; return true; }
-                        if (key7) { a = 0b10111; return true; }
-                        if (key6) { a = 0b01111; return true; }
-                        break;
-                    case 0xFB:   //Q W E R T
-                        if (keyQ) { a = 0b11110; return true; }
-                        if (keyW) { a = 0b11101; return true; }
-                        if (keyE) { a = 0b11011; return true; }
-                        if (keyR) { a = 0b10111; return true; }
-                        if (keyT) { a = 0b01111; return true; }
-                        break;
-                    case 0xDF:
-                        //if (keyP) { a = 0b11110; return true; }
-                        //if (keyO) { a = 0b11101; return true; }
-                        //if (keyI) { a = 0b11011; return true; }
-                        //if (keyU) { a = 0b10111; return true; }
-                        //if (keyY) { a = 0b01111; return true; }
-                        if (keyP) retvalue &= 0b11110;
-                        if (keyO) retvalue &= 0b11101;
-                        if (keyI) retvalue &= 0b11011;
-                        if (keyU) retvalue &= 0b10111;
-                        if (keyY) retvalue &= 0b01111;
-                        a = (byte)retvalue; return true;
-                        break;
-                    case 0xFD:   //A S D F G
-                        if (keyA) { a = 0b11110; return true; }
-                        if (keyS) { a = 0b11101; return true; }
-                        if (keyD) { a = 0b11011; return true; }
-                        if (keyF) { a = 0b10111; return true; }
-                        if (keyG) { a = 0b01111; return true; }
-                        break;
-                    case 0xBF:   //enter, L K J H
-                        //this will not work for more than one key in this segment
-                        if (keyEnter) { a = 0b11110; return true; }
-                        if (keyL) { a = 0b11101; return true; }
-                        if (keyK) { a = 0b11011; return true; }
-                        if (keyJ) { a = 0b10111; return true; }
-                        if (keyH) { a = 0b01111; return true; }
-                        break;
-                    case 0x7F:
-                        if (keySpace)  { a = 0b11110; return true; }
-                        if (keySymbol) { a = 0b11101; return true; }
-                        if (keyM)      { a = 0b11011; return true; }
-                        if (keyN)      { a = 0b10111; return true; }
-                        if (keyB)      { a = 0b01111; return true; }
-                        break;
-                    case 0xFE:
-
-                        if (keyCaps) { a = 0b11110; return true; }
-                        if (keyZ)    { a = 0b11101; return true; }
-                        if (keyX)    { a = 0b11011; return true; }
-                        if (keyC)    { a = 0b10111; return true; }
-                        if (keyV)    { a = 0b01111; return true; }
-                        
-                        
-                        //if (keyBreak) {  a = 0b11110; return true; }
-                        break;
-
-                    case 0x0: //in the case of "any" key, the "1" will be that "any key"
-                        //always return true; (for penetrator quick start)
-                        //a = 0b11110; return true;
-
-                        if (key1)
-                        {
-                            a = 0x1E;  //all 5 bits on except the last (key 1)
-                            a = 0b11110;
-                            return true;
-                        }
-                        break;
-                    case 0x7E:   //port of unknown origin, lets return 0x1f and hope for the best
-                        a = 0b11111;
-                        return true;
-
-                    default:
-                        Debug.Assert(false, "unknown FE port");
-                        Debugger.Break();
-                        break;
-
-                }
-
-            }
-            //  bit 0     1   2 3 4 
-
-            //FEFE  shift Z   X C V
-            //FDFE  A     S   D F G
-            //FBFE  Q     W   E R T
-            //F7FE  1     2   3 4 5
-            //EFFE  0     9   8 7 6
-            //DFFE  P     O   I U Y
-            //BFFE  enter L   K J H
-            //7FFE  space Sym M N B
-
-            //what happens with this false 
-            a = 0;
-            return false;
-
-        }
-
         public byte ReadForX(int portH, int portL)
         {
             //reusing the same keyboard class for interpreter X
@@ -251,7 +289,7 @@ namespace GreatEscape
             //int c = cpu.getContext().bc.c;
 
             byte rez;
-            if (ReadInPort(portH, portL, out rez))
+            if (ReadInPort(portH, portL, out rez, 0L))
             {
                 return rez;
             }
@@ -262,6 +300,32 @@ namespace GreatEscape
 
 
     }
-    
 
+    public sealed class KeyboardWithRecording : Keyboard { }
+
+    public sealed class KeyboardWithPlayback : Keyboard
+    {
+
+        public KeyboardWithPlayback(Dictionary<long, byte> keypresses)
+        {
+            this.m_recordingLog = keypresses;
+        }
+
+        public override bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
+        {
+            //instructionCount used for recording and replaying
+
+            //bool rez = ReadInPort(portH, portL, out a);
+
+
+
+            Debug.Assert(m_recordingLog.ContainsKey(instructionCount), "Trying to replay nonexistant instructionCount");
+
+            a = m_recordingLog[instructionCount];
+            return true;
+        }
+
+
+
+    }
 }

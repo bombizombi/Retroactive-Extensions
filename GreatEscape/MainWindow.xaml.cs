@@ -62,8 +62,11 @@ namespace GreatEscape
 
         private void ButtonLoops_Click(object sender, RoutedEventArgs e)
         {
-            Button s = sender as Button;
-            string vs = s.Content as string;
+            if (sender is null) return;
+            Button? s = sender as Button;
+            if (s is null) return;
+            string? vs = s.Content as string;
+            if (vs is null) return;
             VM.Loop( int.Parse(vs));
             
         }

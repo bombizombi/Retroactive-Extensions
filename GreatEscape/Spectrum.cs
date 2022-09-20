@@ -18,7 +18,7 @@ namespace GreatEscape
 
 
 
-        private int aam_instruction_counter = 0;
+        private long aam_instruction_counter = 0;
         private IMemoryAccessVisualizer m_vizmem;
         private Keyboard m_keyboard;
         private string m_z80File;
@@ -2831,6 +2831,9 @@ namespace GreatEscape
                 a = hack_procX.getContext().R;
             }
 
+            Debugger.Break(); //this must go to keyboard logger
+            m_keyboard.Overwrite_R_RegisterValue(ref a);
+
         }
 
 
@@ -3346,8 +3349,8 @@ namespace GreatEscape
             a = 0x1F;   // binary 0001 1111  -> 5 keys not pressed?
 
             byte dum = 0;
-            bool reckognizedPort = m_keyboard.ReadInPort(b, c, out dum);
-
+            bool reckognizedPort = m_keyboard.ReadInPort(b, c, out dum, aam_instruction_counter);
+            
             if (reckognizedPort)  //do not change a otherwise
             {
                 a = dum;
@@ -3369,7 +3372,7 @@ namespace GreatEscape
 
 
             byte dum = 0;
-            bool reckognizedPort = m_keyboard.ReadInPort(a, n, out dum);
+            bool reckognizedPort = m_keyboard.ReadInPort(a, n, out dum, aam_instruction_counter);
 
             a = 0x1F;   // binary 0001 1111  -> 5 keys not pressed?
             if (reckognizedPort)  //do not change a otherwise
@@ -3898,7 +3901,7 @@ namespace GreatEscape
 
 
 
-        public Spectrum(byte[] rom, byte[] z, IMemoryAccessVisualizer viz, Keyboard kb, string ge)
+        public Spectrum(byte[] rom, byte[] z, IMemoryAccessVisualizer? viz, Keyboard kb, string ge)
         {
             this.m_z80File = ge; //used as a skoolkit file 
             this.m_vizmem = viz;
