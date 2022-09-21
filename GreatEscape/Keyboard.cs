@@ -12,11 +12,13 @@ namespace GreatEscape
 
     public class Keyboard
     {
-        protected Dictionary<long, byte> m_recordingLog;
+        protected Dictionary<long, byte> m_keyboardRecordingLog;
+        protected Dictionary<long, byte> m_RRegisterRecordingLog;
 
         public Keyboard()
         {
-            m_recordingLog = new Dictionary<long, byte>();
+            m_keyboardRecordingLog = new Dictionary<long, byte>();
+            m_RRegisterRecordingLog = new Dictionary<long, byte>();
         }
 
 
@@ -38,7 +40,7 @@ namespace GreatEscape
         public virtual void Overwrite_R_RegisterValue(ref byte a, long instructionCount)
         {
             //recording version
-
+            
 
         }
 
@@ -301,14 +303,15 @@ namespace GreatEscape
 
     }
 
-    public sealed class KeyboardWithRecording : Keyboard { }
 
     public sealed class KeyboardWithPlayback : Keyboard
     {
 
-        public KeyboardWithPlayback(Dictionary<long, byte> keypresses)
+        public KeyboardWithPlayback(Dictionary<long, byte> keypresses, Dictionary<long,byte> rhist)
         {
-            this.m_recordingLog = keypresses;
+            this.m_keyboardRecordingLog = keypresses;
+            this.m_RRegisterRecordingLog = rhist;
+            
         }
 
         public override bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
@@ -319,9 +322,9 @@ namespace GreatEscape
 
 
 
-            Debug.Assert(m_recordingLog.ContainsKey(instructionCount), "Trying to replay nonexistant instructionCount");
+            Debug.Assert(m_keyboardRecordingLog.ContainsKey(instructionCount), "Trying to replay nonexistant instructionCount");
 
-            a = m_recordingLog[instructionCount];
+            a = m_keyboardRecordingLog[instructionCount];
             return true;
         }
 
