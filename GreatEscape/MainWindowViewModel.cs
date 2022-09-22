@@ -85,7 +85,6 @@ namespace GreatEscape
             //viz.SetSpectrum(zx);
 
             m_skoolkit = new SkoolkitIPC(memFileName);
-            //22                
 
 
 
@@ -169,26 +168,28 @@ namespace GreatEscape
         }
 
 
-        //private int m_timerLoopTimes = 50000; //might be wrong
+        //private int m_timerLoopTimes = 50000; //speed adjustment
         private int m_timerLoopTimes = 5000; 
         private void Timer_Tick(object? senderIn, EventArgs e)
         {
             if( senderIn is null) { return; }
             object sender = senderIn;
 
-            //m_screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
-            Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
+            //Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap); moved after the Step
 
             if (!checkBoxTimerEnabled) return;
 
-            bool abortRequest = 
-                
-            LoopX(m_timerLoopTimes);
+            bool abortRequest = LoopX(m_timerLoopTimes);
             
             if(abortRequest)
             {
                 StopTimer();
             }
+
+
+            //Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
+            //loopX also does the screen update?
+
 
             //trigger garbage collector
             //GC.Collect(0);
@@ -299,6 +300,8 @@ namespace GreatEscape
             m_zx.LoopSteps(new PictureBoxReplacement(() => UpdateGUI()) , steps);
             UpdateGUI();
 
+            Debugger.Break(); //decisions must be made who controls the step looping
+
             ZDis = m_zx.stop_error_string;
         }
 
@@ -371,7 +374,6 @@ namespace GreatEscape
 
             //update some pixels 
 
-            //11
             try
             {
                 // Reserve the back buffer for updates.
@@ -577,6 +579,8 @@ namespace GreatEscape
                 }
             };
             //if ( e.Key == Key.D1) { m_keyboard.SetKey1(true); }
+
+            //el metodo stupido
 
             ac(Key.D1, m_keyboard.SetKey1);
             ac(Key.D2, m_keyboard.SetKey2);
@@ -789,9 +793,12 @@ namespace GreatEscape
             Debug.Assert(same);*/
 
 
-            var log = new ExecLog("Fireworks.");
+            var log = new RecordingLog("Fireworks.");
             //now we need to record the initiali state, before the first instruction is executed
-            log.InitializeState(m_zx.ram, m_zx);
+            log.InitializeState(m_zx.ram, m_zx, m_zx.GetInstructionCount());
+
+            //currently, we create the log, we send it to the zx, and we get the full log back
+            //when logging is stoped.   Might be ok?
 
             var logTester = new ExecLogV1FullSnapshots("Fireworks.");
             m_zx.StartLog(log, logTester);
@@ -814,18 +821,23 @@ namespace GreatEscape
 
 
         //private ObservableCollection<ExecLogV1FullSnapshots> _execLog = new();
-        private ObservableCollection<ExecLog> _execLogs = new();
+        //private ObservableCollection<ExecLog> _execLogs = new();  v2
+        private ObservableCollection<RecordingLog> _recLogs = new();
 
 
-        public ObservableCollection<ExecLog> ExecLogs
+        public ObservableCollection<RecordingLog> RecordingLogs
         {
-            get { return _execLogs; }
-            set { _execLogs = value; SetProperty(ref _execLogs, value);  }
+            get { return _recLogs; }
+            set { _recLogs = value; SetProperty(ref _recLogs, value);  }
         }
 
         internal void StopExecLog()
         {
             var log = m_zx.StopLog(); //should stop after current instruction
+                                      //but it won't in sync mode with 5k instructions batch
+
+            //bug here, should not return before stopping the log, otherwise, the command will be ignored
+
 
             if (log is null) return;  //emulator didn't even start
             //if (log.LogEntries.Count() <= 0) return; //no log entries
@@ -835,11 +847,8 @@ namespace GreatEscape
             log.CreateMugShots();
 
             //save the log in a collection  
-            _execLogs.Add(log);
-            
-            
-            
-            
+            _recLogs.Add(log);
+           
 
 
             //break out of loop
@@ -880,13 +889,13 @@ namespace GreatEscape
         }
 
 
-        internal void LogicalFunctionForGhidra()
+        internal void LogicalFunctionForGhidra_Hack()
         {
             //copy of stop-logging event
             //do log[active+1] and not log[active]
 
-            var log1 = _execLogs[1]; //hack
-            var log2 = _execLogs[2];
+            var log1 = _recLogs[1]; //hack
+            var log2 = _recLogs[2];
 
             //select members of log2 that are not in the log1
             var forbidenAdrs = log1.LogEntries
@@ -916,10 +925,9 @@ namespace GreatEscape
         }
 
 
-        //222222222222222
 
-        private ExecLog _activeLog;
-        public ExecLog ActiveLog //bound to listview SelectedItem
+        private RecordingLog _activeLog;
+        public RecordingLog ActiveLog //bound to listview SelectedItem
         {
             get { return _activeLog; }
             set
@@ -936,7 +944,7 @@ namespace GreatEscape
 
         }
 
-        private void SetZXStateFromLog(ExecLog _activeLog, int requested)
+        private void SetZXStateFromLog(RecordingLog _activeLog, int requested)
         {
             //this will not work with more than 7FFF FFFF elemes
             ExecLogState entry = _activeLog[requested];
@@ -952,13 +960,13 @@ namespace GreatEscape
         internal void SliderValueChanged(RoutedPropertyChangedEventArgs<double> e, object dc)
         {
             //var a = dc
-            var log = dc as ExecLog;
+            var log = dc as RecordingLog;
             if (log is null)
             {
                 //take the first log in the collection if it exists
-                if (ExecLogs.Count() > 0)
+                if (RecordingLogs.Count() > 0)
                 {
-                    log = ExecLogs.First();
+                    log = RecordingLogs.First();
                 }
                 else
                 {
@@ -984,8 +992,9 @@ namespace GreatEscape
 
         }
 
-        private void UpdateVarWatchers(ExecLog _activeLog, int requested)
+        private void UpdateVarWatchers(RecordingLog _activeLog, int requested)
         {
+            //fixed watch mem location for pen
 
             ExecLogState entry = _activeLog[requested];
 
@@ -1005,7 +1014,6 @@ namespace GreatEscape
             //DbgWatchVars = $"6: {six:X2}";
             DbgWatchVars = rez;;
 
-            //< TextBlock Grid.Row = "3" Text = "{Binding DbgWatchVars}" />
         }
 
         private string _dbgWatchVars;
@@ -1019,7 +1027,7 @@ namespace GreatEscape
         }
 
 
-        private ExecLog? ActiveOrFirst()
+        private RecordingLog? ActiveOrFirst()
         {
             var log = ActiveLog;
 
@@ -1027,9 +1035,9 @@ namespace GreatEscape
             if (log is null)
             {
                 //take the first log in the collection if it exists
-                if (ExecLogs.Count() > 0)
+                if (RecordingLogs.Count() > 0)
                 {
-                    log = ExecLogs.First();
+                    log = RecordingLogs.First();
                 }
             }
             return log;
@@ -1048,8 +1056,7 @@ namespace GreatEscape
 
         internal void SliderDebounced(RoutedEventArgs e)
         {
-            var ev = e as
-                RoutedPropertyChangedEventArgs<double>;
+            var ev = e as RoutedPropertyChangedEventArgs<double>;
             Disassemble();
         }
 
@@ -1078,7 +1085,7 @@ namespace GreatEscape
                 Debug.Assert(false, "zero len log in the system");
             }
             
-            _execLogs.Add(log);
+            _recLogs.Add(log);
         }
 
         internal void SetSelectionStart()
@@ -1118,6 +1125,8 @@ namespace GreatEscape
                 int size = log.LogEntries.Count();
                 var lastEntry = log[size - 1];
 
+                Debugger.Break(); //execLogState changed to "Spectrum"
+                /*
                 var stateSame = lastEntry.CompareToSpectrumState(m_zx);
 
                 //Debug.Assert(stateSame, "Log and current state are different.");
@@ -1128,7 +1137,7 @@ namespace GreatEscape
 
                     //if pcs are different, it means we run into an instruction without logger
                 }
-
+                */
             } while (true);
 
             int a123 = 123;

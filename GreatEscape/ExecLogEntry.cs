@@ -354,10 +354,36 @@ namespace GreatEscape
             return true;
         }
 
+        public void CopyToSpectrum(Spectrum zx)
+        {
+            zx.a = a;
+            zx.f = f;
+            zx.b = b;
+            zx.c = c;
+            zx.h = h;
+            zx.l = l;
+            zx.d = d;
+            zx.e = e;
 
+            zx.sp = sp;
+            zx.pc = pc;
+
+            zx.a_ = a_;
+            zx.f_ = f_;
+            zx.b_ = b_;
+            zx.c_ = c_;
+            zx.h_ = h_;
+            zx.l_ = l_;
+            zx.d_ = d_;
+            zx.e_ = e_;
+
+            zx.ix = ix;
+            zx.iy = iy;
+
+        }
     }
 
 
-    
+
 
 }

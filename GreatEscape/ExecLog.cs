@@ -23,10 +23,32 @@ namespace GreatEscape
         public Registers registersC;
 
 
+        public ExecLogState(byte[] inram, Registers inregs)
+        {
+            //saving the outside objects
+            ramC = inram;
+            registersC = inregs;
+        }
+
+        public ExecLogState() { }
 
         public static readonly ExecLogState Empty = new ExecLogState() { ramC = new byte[1] };
 
 
+        public ExecLogState Copy()
+        {
+            byte[] newram = new byte[0x10000];
+            Array.Copy(this.ramC, newram, this.ramC.Length);
+            Registers newregs = new Registers(this.registersC);
+
+            var newState = new ExecLogState()
+            {
+                executedAddress = 0,
+                ramC = newram,
+                registersC = newregs
+            };
+            return newState;
+        }
 
         public bool CompareToSpectrumState(Spectrum zx)
         {
@@ -160,7 +182,7 @@ namespace GreatEscape
 
 
 
-    public sealed class ExecLog //v2
+    public sealed class ExecLog //v2  (name changed so that the references break) - removed
     {
                 
         public string Name;
@@ -200,8 +222,6 @@ namespace GreatEscape
             //params:  inram -> current ram
             //         m_zx for access to the current registers
         {
-            //usage log.InitializeState(m_zx.ram);
-
             //create a function with one parameter that returns a function that will initialize our state
 
             Func < Func<ExecLogState, ExecLogState> >  cooker = () =>

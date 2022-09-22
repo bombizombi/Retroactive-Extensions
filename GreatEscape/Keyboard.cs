@@ -25,14 +25,16 @@ namespace GreatEscape
         public virtual bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
         {
             //instructionCount used for recording replaying
+            //xproc should not be using this version
 
             bool rez = ReadInPort(portH, portL, out a);
 
-            Dictionary<long, byte> m_recordingLog = new Dictionary<long, byte>();
+            //Dictionary<long, byte> m_recordingLog = new Dictionary<long, byte>();
 
-            Debug.Assert(!m_recordingLog.ContainsKey(instructionCount), "two instructions with the same instCount");
+            Debug.Assert(!m_keyboardRecordingLog.ContainsKey(instructionCount), 
+                "two instructions with the same instCount");
 
-            m_recordingLog[instructionCount] = a;
+            m_keyboardRecordingLog[instructionCount] = a;
             return rez;
 
         }
@@ -40,8 +42,11 @@ namespace GreatEscape
         public virtual void Overwrite_R_RegisterValue(ref byte a, long instructionCount)
         {
             //recording version
-            
+            //do not overwrite, just record
 
+            Debug.Assert(!m_RRegisterRecordingLog.ContainsKey(instructionCount), 
+                "two regR instructions with the same instCount");
+            m_RRegisterRecordingLog[instructionCount] = a;
         }
 
 
@@ -291,7 +296,7 @@ namespace GreatEscape
             //int c = cpu.getContext().bc.c;
 
             byte rez;
-            if (ReadInPort(portH, portL, out rez, 0L))
+            if (ReadInPort(portH, portL, out rez))
             {
                 return rez;
             }

@@ -25,9 +25,13 @@ namespace GreatEscape
 
         private byte m_opcode;
         private byte m_extOpcode; //used for ED, DD... (all four)
+
         private bool m_execLogEnabled = false;
-        private ExecLog m_execLog;
-        private ExecLogV1FullSnapshots m_execLogTester;
+
+        private RecordingLog m_recLog;
+        private ExecLog m_execLogLogger;  
+        private ExecLogV1FullSnapshots m_execLogTester; //yeah baby run all three
+
         public int highWaterMark = 0;
 
 
@@ -44,7 +48,7 @@ namespace GreatEscape
             Func<ExecLogState, ExecLogState> replayer)
         {
             //just forward the call
-            return m_execLog.AddLogInstruction((ushort)p, pend, replayer);
+            return m_execLogLogger.AddLogInstruction((ushort)p, pend, replayer);
         }
         private Func<ExecLogState, ExecLogState> DebugHelperCreateLogRep(LogStateMaker f)
         {
@@ -60,7 +64,12 @@ namespace GreatEscape
             //m_vizmem.NewPC(pc);
 
             aam_instruction_counter++;
+
+            //p and executedAddress will hold the same value, the pc at the start (p just for debugging)
+            //pc will hold the address at the end (of the next instruction, ofc)
+
             int p = pc;
+            executedAddress = pc;
             int instruction = ram[p];
             m_opcode = (byte)instruction;
             pc++;
@@ -214,6 +223,7 @@ namespace GreatEscape
 
                 if (m_execLogEnabled)
                 {
+                    /* there is no logging in baseball
                     Debug.Assert(toLog is not null, "Take log action at the same moment when taking normal action.");
                     //var x = m_loggingOpcodes[instruction];
 
@@ -230,7 +240,7 @@ namespace GreatEscape
                         m_instaExitRequested = true;
                         stop_error = true;
                         return;
-                    }
+                    }*/
 
                     /*
                     //debug
@@ -1294,9 +1304,7 @@ namespace GreatEscape
             m_loggingOpcodes = new LogStateMaker[256];
             InitializeOpcodeArray_Loop(GenerateOpcodeList(), m_opcodes, m_loggingOpcodes);
 
-
-            //ED instructions
-            
+           
             m_ED_opcodes = new Action[256];
             m_ED_loggingOpcodes = new LogStateMaker[256];
             InitializeOpcodeArray_Loop(Generate_ED_OpcodeList(), m_ED_opcodes, m_ED_loggingOpcodes);
@@ -1305,34 +1313,6 @@ namespace GreatEscape
             m_DD_loggingOpcodes = new LogStateMaker[256];
             InitializeOpcodeArray_Loop(Generate_DD_OpcodeList(), m_DD_opcodes, m_DD_loggingOpcodes);
 
-
-
-            /* loop moved to a separate method
-            foreach (var def in GenerateOpcodeList())
-            {
-                //detect opcodes that this instruction understands
-                for (int i = 0; i < 256; i++)
-                {
-                    if (def.OpcodeDecoder((byte)i))
-                    {
-                        Debug.Assert(m_opcodes[i] == null, "don't overwrite opcodes");
-
-                        m_opcodes[i] = def.Instruction;
-                        m_loggingOpcodes[i] = def.Logger;
-
-
-                        //string name = def.Instruction.Method.Name;  DB
-                        string name = def.Logger.Method.Name;
-                        string nameInst = def.Instruction.Method.Name;
-                        string nDec = def.OpcodeDecoder.Method.Name;
-                        Debug.WriteLine($"op: {i:X2} logr: {name}       ins:{nameInst}   dec:{nDec}");
-                        //def.Logger.Target.GetType().Name      Spectrum
-
-                    }
-
-                }
-            }
-            */
 
         }
 
@@ -1389,7 +1369,7 @@ namespace GreatEscape
             };
         }
 
-
+        #region opcodes
 
         private List<InstructionDef> GenerateOpcodeList()  //instruction def object
         {
@@ -2089,7 +2069,9 @@ namespace GreatEscape
             return instructions;
         }//end GenerateInstructionsList 
 
-        //11111111111111111111111111111
+
+        #endregion
+        #region opcodesED
 
         private List<InstructionDef> Generate_ED_OpcodeList()  //instruction def object
         {
@@ -2141,8 +2123,8 @@ namespace GreatEscape
             return instructions;
         } //end GenerateEDOpcodeList
 
-
-        
+        #endregion
+        #region opcodesDD
 
         private List<InstructionDef> Generate_DD_OpcodeList()  //IX instructions
         {
@@ -2187,11 +2169,7 @@ namespace GreatEscape
 
             return instructions;
         } //end Generate_DD_OpcodeList
-
-
-
-
-
+        #endregion
         #region Instructions
         private void I_DecH()
         {
@@ -2831,8 +2809,8 @@ namespace GreatEscape
                 a = hack_procX.getContext().R;
             }
 
-            Debugger.Break(); //this must go to keyboard logger
-            m_keyboard.Overwrite_R_RegisterValue(ref a);
+            //Debugger.Break(); //this must go to keyboard logger
+            m_keyboard.Overwrite_R_RegisterValue(ref a, aam_instruction_counter);
 
         }
 
@@ -3903,6 +3881,8 @@ namespace GreatEscape
 
         public Spectrum(byte[] rom, byte[] z, IMemoryAccessVisualizer? viz, Keyboard kb, string ge)
         {
+            //constructor that takes z80 file bytes
+
             this.m_z80File = ge; //used as a skoolkit file 
             this.m_vizmem = viz;
             this.m_keyboard = kb;
@@ -4045,6 +4025,20 @@ namespace GreatEscape
             }
         }
 
+        //public Spectrum(byte[] rom, byte[] z, IMemoryAccessVisualizer? viz, Keyboard kb, string ge)
+        public Spectrum(byte[] inmem, Registers inregs, Keyboard kb )
+        {
+            //contstructor that takes saved state from recording log
+            Array.Copy(inmem, ram, inmem.Length);
+            inregs.CopyToSpectrum(this);
+
+            m_keyboard = kb;
+            
+
+        }
+
+
+
         public byte a;
         public byte f;
         public byte b, c, h, l, d, e;
@@ -4058,6 +4052,8 @@ namespace GreatEscape
         public ushort iy;
 
         public byte[] ram = new byte[65536];
+
+        public ushort executedAddress;
 
 
         /*  flags register
@@ -4747,25 +4743,32 @@ namespace GreatEscape
 
 
 
-        public void StartLog(ExecLog log, ExecLogV1FullSnapshots logTester)
+        //public void StartLog(ExecLog log, ExecLogV1FullSnapshots logTester)
+        public void StartLog(RecordingLog log, ExecLogV1FullSnapshots logTester)
         {
             m_execLogEnabled = true; //not sure about this one
-            m_execLog = log;
+            m_recLog = log;
             m_execLogTester = logTester; //to be removed
         }
 
+
+
         private bool m_instaExitRequested = false;
-        public ExecLog StopLog()
+        public RecordingLog StopLog()
         {
             //stop execution
             m_execLogEnabled = false;
             m_instaExitRequested = true;
 
-            return m_execLog;
+            m_recLog.SetLastInstructionCounter(aam_instruction_counter);
+
+            return m_recLog;
         }
-        public ExecLog GetCurrentPartialLog()
+        public RecordingLog GetCurrentPartialLog()
         {
-            return m_execLog;
+            Debugger.Break();
+            //return Recording?
+            return m_recLog;
         }
 
 
@@ -4788,10 +4791,9 @@ namespace GreatEscape
         }
 
 
-        //targer
-
         public void LoopSteps(PictureBoxReplacement scr)
         {
+            
             bool stop_error = false;
             bool exit = false;
             do
@@ -4928,14 +4930,10 @@ namespace GreatEscape
             return rez.ToString();
         }
 
-
-
-
-
-
-
-
-
+        public long GetInstructionCount()
+        {
+            return aam_instruction_counter;
+        }
 
 
     } // end of class Spectrum 

@@ -108,8 +108,8 @@ namespace GreatEscape
         private void SetSelectionEnd(object sender, RoutedEventArgs e) => VM.SetSelectionEnd();
 
 
-        private void InNextButNotSelected(object sender, RoutedEventArgs e) => VM.LogicalFunctionForGhidra();
-
+        private void InNextButNotSelected(object sender, RoutedEventArgs e) => VM.LogicalFunctionForGhidra_Hack();
+        
         private void ButtonStepTests_Click(object sender, RoutedEventArgs e) => VM.StepWithTests();
 
     }
