@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.RightsManagement;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -21,6 +22,11 @@ namespace GreatEscape
             m_RRegisterRecordingLog = new Dictionary<long, byte>();
         }
 
+        public (Dictionary<long, byte>, Dictionary<long, byte>) GetLogs()
+        {
+            return (m_keyboardRecordingLog, m_RRegisterRecordingLog);
+        }
+
 
         public virtual bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
         {
@@ -31,10 +37,15 @@ namespace GreatEscape
 
             //Dictionary<long, byte> m_recordingLog = new Dictionary<long, byte>();
 
-            Debug.Assert(!m_keyboardRecordingLog.ContainsKey(instructionCount), 
-                "two instructions with the same instCount");
+            //do not save input if it is not reckognized
+            //if(rez)
+            //{
+                Debug.Assert(!m_keyboardRecordingLog.ContainsKey(instructionCount), 
+                    "two instructions with the same instCount");
+                Debug.WriteLine($"writing: {instructionCount}");
 
-            m_keyboardRecordingLog[instructionCount] = a;
+                m_keyboardRecordingLog[instructionCount] = a;
+            //}
             return rez;
 
         }
@@ -165,7 +176,7 @@ namespace GreatEscape
             //7FFE  space Sym M N B
 
             //what happens with this false 
-            a = 0;
+            a = (byte)retvalue; //was 0, no reason
             return false;
 
         }
@@ -319,19 +330,33 @@ namespace GreatEscape
             
         }
 
+
+        private int debug_visitCount = 0;
         public override bool ReadInPort(int portH, int portL, out byte a, long instructionCount)
         {
+            debug_visitCount++;
             //instructionCount used for recording and replaying
 
             //bool rez = ReadInPort(portH, portL, out a);
 
 
-
             Debug.Assert(m_keyboardRecordingLog.ContainsKey(instructionCount), "Trying to replay nonexistant instructionCount");
+            //Debug.WriteLine($"visit count: {debug_visitCount}  {instructionCount:N0}");
 
             a = m_keyboardRecordingLog[instructionCount];
+
+
             return true;
         }
+
+        public override void Overwrite_R_RegisterValue(ref byte a, long instructionCount)
+        {
+            //playback version
+            Debug.Assert(m_RRegisterRecordingLog.ContainsKey(instructionCount), "Trying to replay nonexistant instructionCount");
+
+            a = m_RRegisterRecordingLog[instructionCount];
+        }
+
 
 
 

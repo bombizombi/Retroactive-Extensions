@@ -10,6 +10,7 @@ using System.IO;
 //using System.Drawing;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -263,7 +264,7 @@ namespace GreatEscape
                 }
                 xtot++;
             }
-            UpdateGUI();
+            UpdateGUI(m_zx.ram);
             return rezRequestStop;
 
         }
@@ -297,8 +298,8 @@ namespace GreatEscape
 
         public void Loop(int steps)
         {
-            m_zx.LoopSteps(new PictureBoxReplacement(() => UpdateGUI()) , steps);
-            UpdateGUI();
+            m_zx.LoopSteps(new PictureBoxReplacement(() => UpdateGUI(m_zx.ram)) , steps);
+            UpdateGUI(m_zx.ram);
 
             Debugger.Break(); //decisions must be made who controls the step looping
 
@@ -306,10 +307,10 @@ namespace GreatEscape
         }
 
 
-        private void UpdateGUI()
+        private void UpdateGUI(byte[] inram)
         {
 
-            Screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
+            Screen.PaintZXScreenVersion5(inram, _writeableBitmap);
             //m_screen.PaintZXScreenVersion5(m_zx.GetRam(), _writeableBitmap);
 
 
@@ -947,10 +948,13 @@ namespace GreatEscape
         private void SetZXStateFromLog(RecordingLog _activeLog, int requested)
         {
             //this will not work with more than 7FFF FFFF elemes
-            ExecLogState entry = _activeLog[requested];
+            //ExecLogState entry = _activeLog[requested];
+
+            var logEntry = _activeLog[requested];
+
             //copy entry to m_zx memory
-            m_zx.SetStateScreenOnly(entry);
-            UpdateGUI();
+            //m_zx.SetStateScreenOnly(entry);
+            UpdateGUI(logEntry.ram);
         }
 
 
@@ -996,17 +1000,17 @@ namespace GreatEscape
         {
             //fixed watch mem location for pen
 
-            ExecLogState entry = _activeLog[requested];
+            var entry = _activeLog[requested];
 
             int ix = 0xa5df;
             int adr = ix + 6; //, ix is? a5df
-            byte six = entry.ramC[adr];
+            byte six = entry.ram[adr];
 
             string rez = "all ix+6  ";
             for (int i = 0; i < 8; i++)
             {
                 int sixerA = ix + (19 * i) + 18;
-                int sixer = entry.ramC[sixerA];
+                int sixer = entry.ram[sixerA];
                 rez = rez + $" {sixer:X2}   ";
             }
 
@@ -1141,6 +1145,97 @@ namespace GreatEscape
             } while (true);
 
             int a123 = 123;
+
+        }
+
+        internal void TrippleTest()
+        {
+            //more like double 
+
+            bool stop_error;
+
+            //bool abortRequest = LoopX(m_timerLoopTimes); 
+
+            //get the current logs from zx 
+            RecordingLog runningLog = m_zx.Test_GetRunningLogWithoutStopping(); //??
+
+            //initialize parallel replayer log
+            var state = runningLog.GetInitialState();
+
+            var kbwp = runningLog.CreatePlaybackKeyboard();
+            //create new log replaying keyboard
+            //KeyboardWithPlayback kb = new KeyboardWithPlayback(rec.keyboard, rec.RRegister);
+
+            //create new zx with this state
+            var replaying_zx = new Spectrum(state.ramC, state.registersC, kbwp);
+
+            //22
+
+
+
+            for (int i = 0; true; i++) //forever
+            {
+                m_zx.Step(out stop_error);
+
+                if (stop_error)
+                {
+                    ZDis = m_zx.stop_error_string;
+                    Debugger.Break();
+                    break;
+                }
+
+                replaying_zx.Step(out bool _);
+
+
+
+
+                //compare
+                bool theSame = m_zx.CompareToSpectrum(replaying_zx);
+                if (!theSame)
+                {
+                    Debugger.Break();
+                }
+
+                /*
+                bool theSame = m_zx.ComparetoXZ80(procX);
+                string reason = "";
+                if (!theSame) reason = m_zx.CompareAndGiveReason(procX);
+
+                if (!theSame)
+                {
+                    Debugger.Break();
+                }
+                xtot++;
+                */
+            }
+
+            //tripple check will run without feedback
+            UpdateGUI(m_zx.ram);
+
+            /* sync current with recording
+            //111111111111111111
+
+
+            var state = rec.initialState.Copy();//copy not needed, spectrum allready copies everything
+
+            //create new log replaying keyboard
+            KeyboardWithPlayback kb = new KeyboardWithPlayback(rec.keyboard, rec.RRegister);
+
+            //create new zx with this state
+            var zx = new Spectrum(state.ramC, state.registersC, kb);
+
+            bool stop_error_ignored;
+            //do all steps
+            for (long i = 0; i < index; i++)
+            {
+                //see if end will be the next index, or the last existing
+                zx.Step(out stop_error_ignored);
+            }
+            return zx;
+
+
+            //222222222222222222
+            */
 
         }
 

@@ -217,7 +217,7 @@ namespace GreatEscape
                 {
                     yield return _LogEntries[i].replayInstruction(state);
                 }*/
-                Debugger.Break();  //could be enough
+                //Debugger.Break();  //could be enough
             }
         }
 
@@ -284,10 +284,27 @@ namespace GreatEscape
 
             //Debugger.Break();  //mugshots a nice test
 
-            Screen.PaintZXScreenVersion5(this[0].ramC, _bmpStart);
-            Screen.PaintZXScreenVersion5(this[mid].ramC, _bmpMid);
-            Screen.PaintZXScreenVersion5(this[count].ramC, _bmpEnd);
+            Screen.PaintZXScreenVersion5(this[0].ram, _bmpStart);
+            Screen.PaintZXScreenVersion5(this[mid].ram, _bmpMid);
+            Screen.PaintZXScreenVersion5(this[count].ram, _bmpEnd);
 
+        }
+
+        internal void SetLogs(Dictionary<long, byte> mk, Dictionary<long, byte> mr)
+        {
+            rec.keyboard = mk;
+            rec.RRegister = mr;
+        }
+
+        internal ExecLogState GetInitialState()
+        {
+            return rec.initialState.Copy();//copy not needed, spectrum allready copies everything
+        }
+
+        public KeyboardWithPlayback CreatePlaybackKeyboard()
+        {
+            KeyboardWithPlayback kb = new KeyboardWithPlayback(rec.keyboard, rec.RRegister);
+            return kb;
         }
 
 

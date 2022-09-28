@@ -62,6 +62,7 @@
 
         <StackPanel Orientation="Horizontal" Grid.ColumnSpan="2">
             <Button Content="Toggle size" Click="ToggleSize_Click" />
+            <Button Content ="tripple test" Click="TrippleTest_Click" />
             <Button Content="Start" Name="StartButton" Width="100" Click="StartButton_Click" />
             <TextBlock Text="{Binding DebugProp}" Width="70" Margin="10" HorizontalAlignment="Center"/>
             <Button Content="Step with test" Click="ButtonStepTests_Click" />
@@ -170,7 +171,7 @@
                           HorizontalContentAlignment="Stretch"                          
                
                 -->
-                <ListView ItemsSource="{Binding ExecLogs}"   ItemTemplate="{StaticResource temExecLog}"
+                <ListView ItemsSource="{Binding RecordingLogs}"   ItemTemplate="{StaticResource temExecLog}"
                           SelectedItem="{Binding ActiveLog}"
                           HorizontalContentAlignment="Stretch"                          
                           

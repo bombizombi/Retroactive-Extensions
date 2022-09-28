@@ -112,5 +112,7 @@ namespace GreatEscape
         
         private void ButtonStepTests_Click(object sender, RoutedEventArgs e) => VM.StepWithTests();
 
+
+        private void TrippleTest_Click(object sender, RoutedEventArgs e) => VM.TrippleTest();
     }
 }

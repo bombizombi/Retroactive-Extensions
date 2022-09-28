@@ -1338,7 +1338,7 @@ namespace GreatEscape
                         string name = def.Logger.Method.Name;
                         string nameInst = def.Instruction.Method.Name;
                         string nDec = def.OpcodeDecoder.Method.Name;
-                        Debug.WriteLine($"op: {i:X2} logr: {name}       ins:{nameInst}   dec:{nDec}");
+                        //Debug.WriteLine($"op: {i:X2} logr: {name}       ins:{nameInst}   dec:{nDec}");
                         //def.Logger.Target.GetType().Name      Spectrum
                     }
                 }
@@ -3622,12 +3622,18 @@ namespace GreatEscape
             int bc = b * 256 + c;
             int de = d * 256 + e;
 
-            do
-            {
-                ram[de] = ram[hl];
-                de--; hl--;
-                bc--;
-            } while (bc > 0);
+            //do
+            //{
+                //ram[de] = ram[hl];
+                //de--; hl--;
+                //bc--;
+            //} while (bc > 0);
+
+            ram[de] = ram[hl];
+            de--; hl--;
+            bc--;
+            if (bc > 0) { pc--; pc--; }
+
             d = (byte)(de / 256); e = (byte)(de % 256);
             b = (byte)(bc / 256); c = (byte)(bc % 256);
             h = (byte)(hl / 256); l = (byte)(hl % 256);
@@ -4033,7 +4039,11 @@ namespace GreatEscape
             inregs.CopyToSpectrum(this);
 
             m_keyboard = kb;
-            
+
+            Initialize_Reg_ReadersWriters();
+            InitializeOpcodeArray();
+
+
 
         }
 
@@ -4663,6 +4673,24 @@ namespace GreatEscape
         }
 
 
+        public bool CompareToSpectrum(Spectrum s)
+        {
+            if (s.a != a) return false;
+            if (s.h != h) return false;
+            if (s.l != l) return false;
+            if (s.b != b) return false;
+            if (s.c != c) return false;
+            if (s.d != d) return false;
+            if (s.e != e) return false;
+            if (s.ix != ix) return false;
+            if (s.iy != iy) return false;
+            if (s.sp != sp) return false;
+
+            return true;
+        }
+
+
+
         //debug dump bytes for onlinedissasembler
         public string DebugDumpBytes(int start, int size) //start is in bytes
         {
@@ -4762,6 +4790,8 @@ namespace GreatEscape
 
             m_recLog.SetLastInstructionCounter(aam_instruction_counter);
 
+            (var mk, var mr) = m_keyboard.GetLogs();
+            m_recLog.SetLogs(mk, mr);
             return m_recLog;
         }
         public RecordingLog GetCurrentPartialLog()
@@ -4770,6 +4800,18 @@ namespace GreatEscape
             //return Recording?
             return m_recLog;
         }
+        public RecordingLog Test_GetRunningLogWithoutStopping()
+        {
+            //which one of those is needed
+            m_recLog.SetLastInstructionCounter(aam_instruction_counter);
+
+            (var mk, var mr) = m_keyboard.GetLogs();
+            m_recLog.SetLogs(mk, mr);
+
+            return m_recLog;
+        }
+
+
 
 
         public override string ToString()
