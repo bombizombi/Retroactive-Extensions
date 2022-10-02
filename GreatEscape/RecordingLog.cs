@@ -132,7 +132,7 @@ namespace GreatEscape
                 //be optimized, and enumerable will probably stay the same
 
                 //however, both are untested
-
+                
                 //var state = rec.initialState.Copy();
                 var state = rec.initialState.Copy();//copy not needed, spectrum allready copies everything
 

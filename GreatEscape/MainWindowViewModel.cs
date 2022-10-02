@@ -958,11 +958,25 @@ namespace GreatEscape
         }
 
 
+        private HashSet<double> debug_slids = new();
 
 
         private double _sliderValue = 0;
         internal void SliderValueChanged(RoutedPropertyChangedEventArgs<double> e, object dc)
         {
+            //hijack for debug
+            debug_slids.Add(e.NewValue);
+            Debug.WriteLine($"slider has dist vals: {debug_slids.Count}");
+            bool dwrite = false;
+            dwrite = true;
+            if(dwrite)
+            {
+                var sorted = debug_slids.OrderBy(x => x);
+                File.WriteAllLines("slider.txt", sorted.Select(x => x.ToString()));
+            }
+
+
+
             //var a = dc
             var log = dc as RecordingLog;
             if (log is null)
@@ -995,6 +1009,60 @@ namespace GreatEscape
             UpdateVarWatchers(log, (int)requestedFrame);
 
         }
+
+        //xx
+        private double _selStart = 20;
+        private double _selEnd = 40;
+        public double SliderSelectionStart { get => _selStart; set => SetProperty(ref _selStart, value); }
+        public double SliderSelectionEnd { get => _selEnd; set => SetProperty(ref _selEnd, value); }
+
+
+
+        private long _ssStart;
+        private long _ssEnd;
+        public string ZssStart
+        {
+            get { return $"{_ssStart}"; }
+        }
+        public string ZssEnd
+        {
+            get { return $"{_ssEnd}"; }
+        }
+
+        internal void CreateNewFromSelection()
+        {
+            var parent = ActiveOrFirst();
+            if (parent is null) return;
+
+            //reverse params if end is before start
+
+            var log = parent.CreateSubLog(Math.Min(_ssStart, _ssEnd), Math.Abs(_ssEnd - _ssStart));
+            if (log.LogEntries.Count() == 0)
+            {
+                Debug.Assert(false, "zero len log in the system");
+            }
+
+            _recLogs.Add(log);
+        }
+
+        internal void SetSelectionStart()
+        {
+            var log = ActiveOrFirst();
+            if (log is null) return;
+            _ssStart = log.CalcFrameFromSlider(_sliderValue);
+            SliderSelectionStart = _sliderValue;
+        }
+
+        internal void SetSelectionEnd()
+        {
+            var log = ActiveOrFirst();
+            if (log is null) return;
+            _ssEnd = log.CalcFrameFromSlider(_sliderValue);
+            SliderSelectionEnd = _sliderValue;
+        }
+
+
+
 
         private void UpdateVarWatchers(RecordingLog _activeLog, int requested)
         {
@@ -1065,46 +1133,6 @@ namespace GreatEscape
         }
 
 
-        private long _ssStart;
-        private long _ssEnd;
-        public string ZssStart
-        {
-            get { return $"{_ssStart}"; }
-        }
-        public string ZssEnd
-        {
-            get { return $"{_ssEnd}"; }
-        }
-
-        internal void CreateNewFromSelection()
-        {
-            var parent = ActiveOrFirst();
-            if (parent is null) return;
-
-            //reverse params if end is before start
-
-            var log = parent.CreateSubLog(Math.Min(_ssStart, _ssEnd), Math.Abs( _ssEnd - _ssStart));
-            if( log.LogEntries.Count() == 0)
-            {
-                Debug.Assert(false, "zero len log in the system");
-            }
-            
-            _recLogs.Add(log);
-        }
-
-        internal void SetSelectionStart()
-        {
-            var log = ActiveOrFirst();
-            if (log is null) return;
-            _ssStart = log.CalcFrameFromSlider(_sliderValue);
-        }
-
-        internal void SetSelectionEnd()
-        {
-            var log = ActiveOrFirst();
-            if (log is null) return;
-            _ssEnd = log.CalcFrameFromSlider(_sliderValue);
-        }
 
         internal void StepWithTests()
         {

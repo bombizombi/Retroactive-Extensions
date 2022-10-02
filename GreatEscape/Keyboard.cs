@@ -42,7 +42,7 @@ namespace GreatEscape
             //{
                 Debug.Assert(!m_keyboardRecordingLog.ContainsKey(instructionCount), 
                     "two instructions with the same instCount");
-                Debug.WriteLine($"writing: {instructionCount}");
+                //Debug.WriteLine($"writing: {instructionCount}");
 
                 m_keyboardRecordingLog[instructionCount] = a;
             //}

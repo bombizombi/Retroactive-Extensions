@@ -6,10 +6,10 @@
         xmlns:local="clr-namespace:GreatEscape"
         mc:Ignorable="d"
         WindowStartupLocation="Manual" 
-        Left="1120" Top="616"        
+        Left="1120" Top="545"        
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewKeyUp="Window_PreviewKeyUp"
-        Title="MainWindow" Height="470" Width="800">
+        Title="MainWindow" Height="542" Width="800">
     <Window.Resources>
         <!--  style -->
         <Style TargetType="Button">
@@ -122,14 +122,24 @@
                 <Rectangle Height="30" Width="30" Fill="Red" Margin="5 5 5 5" />
                 <Rectangle Height="30" Width="30" Grid.Column="1" Fill="Green" Margin="5 5 5 5" />
                 <Slider Grid.Column="2"  Margin="1" x:Name="slidero"
-                    DataContext="{Binding ElementName=logItems, Path=SelectedItem}"
                     VerticalAlignment="Center"
                     Minimum="0" Maximum="100" TickPlacement="None"
                     ValueChanged="Slider_ValueChanged"
+                    IsMoveToPointEnabled="True"
+                       
+                        IsSelectionRangeEnabled="True"
+                        SelectionStart="{Binding SliderSelectionStart,Mode=TwoWay}"
+                        SelectionEnd="{Binding SliderSelectionEnd,Mode=TwoWay}"
+                        
                       />
                 <!--        
                     Minimum="0" Maximum="{Binding MaxFrame}" 
                     Value="{Binding Frame, Mode=TwoWay}"  IsSnapToTickEnabled="True" TickFrequency="50"  />
+                
+                    probao ukljucit selection 
+                
+                    izbacio
+                    DataContext="{Binding ElementName=logItems, Path=SelectedItem}"
                 
                 -->
                 <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.ColumnSpan="3">
