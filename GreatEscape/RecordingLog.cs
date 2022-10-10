@@ -56,6 +56,10 @@ namespace GreatEscape
         //could it be replaced with instCounterStart and instCounterEnd values?
         private RecordingLog m_log;
 
+        //slider rendering
+        Dictionary<long, ExecLogState> _renderedFrames = new(); //move
+
+        //mugshots
         WriteableBitmap _bmpStart;
         WriteableBitmap _bmpMid;
         WriteableBitmap _bmpEnd;
@@ -90,24 +94,34 @@ namespace GreatEscape
         //params:  inram -> current ram
         //         m_zx for access to the current registers
         //         instCounterStart -> current instruction counter
+        //
+        // (this parameter list makes no sense)
+         
         {
             instructionStart = instCounterStart;
 
+            rec.initialState = CopyStateFromSpectrum(inram, zx);
+                
+            /* moved to copyStateFromSpectrum
+            byte[] capram = new byte[0x10000];
+            Array.Copy(inram, capram, inram.Length);
+            Registers capregs = new Registers(zx);
+            rec.initialState = new ExecLogState(capram, capregs);*/
+
+            //instructionStart is not part of the state???
+        }
+
+        public static ExecLogState CopyStateFromSpectrum(byte[] inram, Spectrum zx)
+        {
+            //this brainded parameter list is still here 
             byte[] capram = new byte[0x10000];
             Array.Copy(inram, capram, inram.Length);
             Registers capregs = new Registers(zx);
 
-            rec.initialState = new ExecLogState(capram, capregs);
-
-            //or
-            /*
-            var newState = new ExecLogState()
-            {
-                executedAddress = 0,
-                ramC = newram,
-                registersC = newregs
-            };*/
-
+            Debugger.Break(); //decisions must be made on how many steps log actually has
+                //and if points at the next instruction to exec or the current that was already done
+            var rez = new ExecLogState(capram, capregs, zx.pc);
+            return rez;
         }
 
         public void SetLastInstructionCounter(long c)
@@ -276,19 +290,120 @@ namespace GreatEscape
         public WriteableBitmap BmpStart { get { return _bmpStart; } }
         public WriteableBitmap BmpMid { get { return _bmpMid; } }
         public WriteableBitmap BmpEnd { get { return _bmpEnd; } }
+
+
         public void CreateMugShots()
         {
+
+
+            
             //var count = _LogEntries.Count - 1;
             long count = instructionEnd - 1;
             var mid = count / 2;
 
             //Debugger.Break();  //mugshots a nice test
 
+
+
             Screen.PaintZXScreenVersion5(this[0].ram, _bmpStart);
             Screen.PaintZXScreenVersion5(this[mid].ram, _bmpMid);
             Screen.PaintZXScreenVersion5(this[count].ram, _bmpEnd);
 
         }
+
+        /*
+        //0 init state
+        //   step
+        //   step
+        //   1 - 
+        //end
+        log with start 0 and end 1 logically contains 2 states
+        0 - state before first step
+        1 - start after the first step
+        so (end-start) = 1, but there are 2 states?
+
+        rendered frames, 0 is the initial state
+                         dict.Count -1 is the state after the first step
+        */
+
+        public void RenderAvailableFrames()
+        {
+            long SLIDER_STEPS = 100;
+            //create state snapshots for slider access
+            //100 steps?
+
+            //create list? dict? of available frames, each indexed by long
+            //when accessing rendered frames, pick one closest to the available value
+            //(GetApproximateFrame?)
+
+            //indexer was returning the same Spectrum instance, just with different states
+            //Cache needs to copy values
+
+
+            long stepSize = (instructionEnd - instructionStart) / SLIDER_STEPS;
+
+            var state = rec.initialState.Copy();//copy not needed, spectrum already copies everything
+            //create new log replaying keyboard
+            KeyboardWithPlayback kb = new KeyboardWithPlayback(rec.keyboard, rec.RRegister);
+            //create new zx with this state
+
+            //recheck state copies, Spectrum copies ram and regs
+            var zx = new Spectrum(state.ramC, state.registersC, kb);
+
+            _renderedFrames[0] = state.Copy(); //
+            
+            bool stop_error_ignored;
+            //do all steps
+            for (long i = 0; i < instructionEnd; i++)
+            {
+                //see if end will be the next index, or the last existing
+                zx.Step(out stop_error_ignored);
+
+                if ((i % stepSize) == 0)
+                {
+                    var stateCopy = CopyStateFromSpectrum(zx.ram, zx);
+                    long key = i;
+                    //copy the Spectrum state?
+                    Debug.Assert(_renderedFrames.ContainsKey(key), "overwriting dict state");
+
+                    _renderedFrames[key] = stateCopy;
+                }
+            }
+
+            //save last state? ignore?
+            if (!_renderedFrames.ContainsKey(instructionEnd))
+            {
+                _renderedFrames[instructionEnd] = CopyStateFromSpectrum(zx.ram, zx);
+            }
+
+        }
+
+        public ExecLogState GetRenderedFrame(long frame)
+        {
+            return _renderedFrames[frame];
+        }
+
+
+        public long GetClosestRenderedFrameIndex(long requestedFrame)
+        {
+            //find the closest rendered frame in the _renderedFrames
+            long closestFrame = -1;
+            long smallestDiff = long.MaxValue;
+
+            foreach (var frame in _renderedFrames.Keys)
+            {
+                long diff = Math.Abs(frame - requestedFrame);
+                if (diff < smallestDiff)
+                {
+                    smallestDiff = diff;
+                    closestFrame = frame;
+                }
+                if (smallestDiff == 0) break;
+            }
+            return closestFrame;
+        }
+
+
 
         internal void SetLogs(Dictionary<long, byte> mk, Dictionary<long, byte> mr)
         {

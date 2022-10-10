@@ -89,6 +89,7 @@ namespace GreatEscape
         }
 
         private void StartExec_Click(object sender, RoutedEventArgs e) => VM.StartExecLog();
+        private void StartFromCurrentFrame_Click(object sender, RoutedEventArgs e) => VM.StartFromCurrentFrame();
 
         private void StopExec_Click(object sender, RoutedEventArgs e) => VM.StopExecLog();
 

@@ -4032,7 +4032,8 @@ namespace GreatEscape
         }
 
         //public Spectrum(byte[] rom, byte[] z, IMemoryAccessVisualizer? viz, Keyboard kb, string ge)
-        public Spectrum(byte[] inmem, Registers inregs, Keyboard kb )
+        public 
+            Spectrum(byte[] inmem, Registers inregs, Keyboard kb )
         {
             //contstructor that takes saved state from recording log
             Array.Copy(inmem, ram, inmem.Length);

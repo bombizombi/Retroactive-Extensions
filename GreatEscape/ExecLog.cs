@@ -30,6 +30,12 @@ namespace GreatEscape
             registersC = inregs;
         }
 
+        public ExecLogState(byte[] inram, Registers inregs, ushort inExecAdr)
+            : this( inram, inregs)
+        {
+            executedAddress = inExecAdr;
+        }
+
         public ExecLogState() { }
 
         public static readonly ExecLogState Empty = new ExecLogState() { ramC = new byte[1] };
@@ -43,7 +49,7 @@ namespace GreatEscape
 
             var newState = new ExecLogState()
             {
-                executedAddress = 0,
+                executedAddress = this.executedAddress,
                 ramC = newram,
                 registersC = newregs
             };

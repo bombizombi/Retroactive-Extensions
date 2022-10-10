@@ -820,6 +820,25 @@ namespace GreatEscape
 
         }
 
+        public void StartFromCurrentFrame()
+        {
+            Debugger.Break();
+            bool stop_error = false;
+
+            var log = new RecordingLog("Second?");
+
+            //take state the slider is pointing at
+
+
+            //now we need to record the initiali state, before the first instruction is executed
+            log.InitializeState(m_zx.ram, m_zx, m_zx.GetInstructionCount());
+
+            var logTester = new ExecLogV1FullSnapshots("Fireworks.");
+            m_zx.StartLog(log, logTester);
+
+
+        }
+
 
         //private ObservableCollection<ExecLogV1FullSnapshots> _execLog = new();
         //private ObservableCollection<ExecLog> _execLogs = new();  v2
@@ -844,8 +863,10 @@ namespace GreatEscape
             //if (log.LogEntries.Count() <= 0) return; //no log entries
             if (log.IsEmpty()) return; // no log entries
 
+            log.RenderAvailableFrames();
             //create movie screenshots
             log.CreateMugShots();
+            //should change to use cached frames
 
             //save the log in a collection  
             _recLogs.Add(log);
@@ -957,6 +978,19 @@ namespace GreatEscape
             UpdateGUI(logEntry.ram);
         }
 
+        private void SetZXStateFromLogRenderedFrame(RecordingLog _activeLog, long frame)
+        {
+            //this will not work with more than 7FFF FFFF elemes
+            //ExecLogState entry = _activeLog[requested];
+
+            var logEntry = _activeLog.GetRenderedFrame(frame);
+
+            //copy entry to m_zx memory
+            //m_zx.SetStateScreenOnly(entry);
+            UpdateGUI(logEntry.ramC);
+        }
+
+
 
         private HashSet<double> debug_slids = new();
 
@@ -964,6 +998,7 @@ namespace GreatEscape
         private double _sliderValue = 0;
         internal void SliderValueChanged(RoutedPropertyChangedEventArgs<double> e, object dc)
         {
+            /*
             //hijack for debug
             debug_slids.Add(e.NewValue);
             Debug.WriteLine($"slider has dist vals: {debug_slids.Count}");
@@ -973,7 +1008,7 @@ namespace GreatEscape
             {
                 var sorted = debug_slids.OrderBy(x => x);
                 File.WriteAllLines("slider.txt", sorted.Select(x => x.ToString()));
-            }
+            }*/
 
 
 
@@ -995,18 +1030,22 @@ namespace GreatEscape
             _sliderValue = e.NewValue;
 
             //set the new emulator state from the value
+            //v2 use only prerendered values
+
 
             long requestedFrame = log.CalcFrameFromSlider(_sliderValue);
-
 
             //not working if log has 0 frames
             if (requestedFrame < 0) return; //??
 
+            //use rendered frames only
+            long frameToShow = log.GetClosestRenderedFrameIndex(requestedFrame);
 
-            SetZXStateFromLog(log, (int)requestedFrame);
 
+            SetZXStateFromLogRenderedFrame(log, frameToShow);
+            
             //dissasembler state?
-            UpdateVarWatchers(log, (int)requestedFrame);
+            UpdateVarWatchers(log, frameToShow);
 
         }
 
@@ -1064,21 +1103,22 @@ namespace GreatEscape
 
 
 
-        private void UpdateVarWatchers(RecordingLog _activeLog, int requested)
+        private void UpdateVarWatchers(RecordingLog _activeLog, long rendFrame)
         {
             //fixed watch mem location for pen
 
-            var entry = _activeLog[requested];
+            //var entry = _activeLog[requested];
+            var entry = _activeLog.GetRenderedFrame(rendFrame);
 
             int ix = 0xa5df;
             int adr = ix + 6; //, ix is? a5df
-            byte six = entry.ram[adr];
+            byte six = entry.ramC[adr];
 
             string rez = "all ix+6  ";
             for (int i = 0; i < 8; i++)
             {
                 int sixerA = ix + (19 * i) + 18;
-                int sixer = entry.ram[sixerA];
+                int sixer = entry.ramC[sixerA];
                 rez = rez + $" {sixer:X2}   ";
             }
 

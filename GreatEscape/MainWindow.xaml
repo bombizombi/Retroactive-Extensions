@@ -166,7 +166,7 @@
 
             <!-- start stop buttons -->
             <StackPanel Orientation="Horizontal" Grid.Row="0" >
-                <Button Content="Start from current frame"  Click="StartExec_Click" />
+                <Button Content="Start from current frame"  Click="StartFromCurrentFrame_Click" />
                 <Button Content="Stop exec log"  Click="StopExec_Click" />
                 <Button Content="Dis" Click="Dis_Click" />
                 <Button Content="In next but not in selected" Click="InNextButNotSelected" />
