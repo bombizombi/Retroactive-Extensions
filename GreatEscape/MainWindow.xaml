@@ -154,73 +154,92 @@
 
         </Grid>
 
+        
+        <!-- grid containing disassemblies grid and RAM display -->
 
-        <!-- right sidebar -->
         <Grid Grid.Row="1" Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition  Height="Auto" />
-                <RowDefinition  Height="Auto" />
-                <RowDefinition  Height="*" />
-                <RowDefinition  Height="*" />
-            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <!-- start stop buttons -->
-            <StackPanel Orientation="Horizontal" Grid.Row="0" >
-                <Button Content="Start from current frame"  Click="StartFromCurrentFrame_Click" />
-                <Button Content="Stop exec log"  Click="StopExec_Click" />
-                <Button Content="Dis" Click="Dis_Click" />
-                <Button Content="In next but not in selected" Click="InNextButNotSelected" />
-            </StackPanel>
+            
 
-            <!-- removed Height="100" -->
-            <Border  Grid.Row="1" BorderBrush="Blue" BorderThickness="3" MaxHeight="250" >
-                <!-- create items control -->
+            <!-- right sidebar -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition  Height="Auto" />
+                    <RowDefinition  Height="Auto" />
+                    <RowDefinition  Height="*" />
+                    <RowDefinition  Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- start stop buttons -->
+                <StackPanel Orientation="Horizontal" Grid.Row="0" >
+                    <Button Content="Start from current frame"  Click="StartFromCurrentFrame_Click" />
+                    <Button Content="Stop exec log"  Click="StopExec_Click" />
+                    <Button Content="Dis" Click="Dis_Click" />
+                    <Button Content="In next but not in selected" Click="InNextButNotSelected" />
+                </StackPanel>
+
+                <!-- removed Height="100" -->
+                <Border  Grid.Row="1" BorderBrush="Blue" BorderThickness="3" MaxHeight="250" >
+                    <!-- create items control -->
 
 
-                <!-- <ItemsControl ItemsSource="{Binding ExecLogs}"  
-                          HorizontalContentAlignment="Stretch"                          
+                    <!-- <ItemsControl ItemsSource="{Binding ExecLogs}"  
+                              HorizontalContentAlignment="Stretch"                          
                
-                -->
-                <ListView ItemsSource="{Binding RecordingLogs}"   ItemTemplate="{StaticResource temExecLog}"
-                          SelectedItem="{Binding ActiveLog}"
-                          HorizontalContentAlignment="Stretch"                          
+                    -->
+                    <ListView ItemsSource="{Binding RecordingLogs}"   ItemTemplate="{StaticResource temExecLog}"
+                              SelectedItem="{Binding ActiveLog}"
+                              HorizontalContentAlignment="Stretch"                          
                           
-                          Name = "logItems"
-                              >
-                </ListView>
+                              Name = "logItems"
+                                  >
+                    </ListView>
 
 
 
-            </Border>
-            <!-- editable disassembly -->
+                </Border>
+                <!-- editable disassembly -->
 
-            <ItemsControl Grid.Row="2" ItemsSource="{Binding EditableDis}" Grid.IsSharedSizeScope="true">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Grid IsSharedSizeScope="True">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="Adr" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock                 Text="{Binding Address}" FontFamily="Consolas" />
-                            <TextBlock Grid.Column="1" Text="{Binding Disassembled}" FontFamily="Consolas" />
-                            <TextBox Grid.Column="2" Text="{Binding Comment}" FontFamily="Consolas" BorderThickness="0" />
-                        </Grid>
+                <ItemsControl Grid.Row="2" ItemsSource="{Binding EditableDis}" Grid.IsSharedSizeScope="true">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid IsSharedSizeScope="True">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Adr" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock                 Text="{Binding Address}" FontFamily="Consolas" />
+                                <TextBlock Grid.Column="1" Text="{Binding Disassembled}" FontFamily="Consolas" />
+                                <TextBox Grid.Column="2" Text="{Binding Comment}" FontFamily="Consolas" BorderThickness="0" />
+                            </Grid>
 
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
 
-            <!-- text dis-->
-            <TextBlock Grid.Row="3"  FontFamily="Consolas" FontSize="20" Background="Yellow"
-                   Text="{Binding ZDis}" />
+                <!-- text dis-->
+                <TextBlock Grid.Row="3"  FontFamily="Consolas" FontSize="20" Background="Yellow"
+                       Text="{Binding ZDis}" />
+
+            </Grid>
+
+            <!-- RAM display  -->
+            <Grid Grid.Column="1" >
+
+                
+                
+                
+                
+
+            </Grid>
 
         </Grid>
-
-
-
 
     </Grid>
 </Window>

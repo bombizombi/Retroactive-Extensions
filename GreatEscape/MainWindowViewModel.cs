@@ -70,7 +70,8 @@ namespace GreatEscape
             //string memFileName = "ge.z80";
             //string memFileName = "He.z80";
             //memFileName = "pen.z80"; //penetrator koji ne raid
-            string memFileName = "yayfuse.z80";
+            //string memFileName = "yayfuse.z80";
+            string memFileName = "Head.z80";
             byte[] mem = File.ReadAllBytes(memFileName);
             byte[] rom = File.ReadAllBytes("48.rom");
 
@@ -261,6 +262,7 @@ namespace GreatEscape
                 if (!theSame)
                 {
                     Debugger.Break();
+                    rezRequestStop = true; break;
                 }
                 xtot++;
             }

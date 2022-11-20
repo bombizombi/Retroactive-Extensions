@@ -118,7 +118,8 @@ namespace GreatEscape
             Array.Copy(inram, capram, inram.Length);
             Registers capregs = new Registers(zx);
 
-            Debugger.Break(); //decisions must be made on how many steps log actually has
+            //Debugger.Break(); 
+                //decisions must be made on how many steps log actually has
                 //and if points at the next instruction to exec or the current that was already done
             var rez = new ExecLogState(capram, capregs, zx.pc);
             return rez;
@@ -364,7 +365,7 @@ namespace GreatEscape
                     var stateCopy = CopyStateFromSpectrum(zx.ram, zx);
                     long key = i;
                     //copy the Spectrum state?
-                    Debug.Assert(_renderedFrames.ContainsKey(key), "overwriting dict state");
+                    Debug.Assert(!_renderedFrames.ContainsKey(key), "overwriting dict state");
 
                     _renderedFrames[key] = stateCopy;
                 }

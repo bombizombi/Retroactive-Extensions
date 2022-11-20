@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -2117,7 +2118,21 @@ namespace GreatEscape
                             return state;
                         };
                     }
-                }
+                },
+                new InstructionDef
+                {
+
+                    OpcodeDecoder = op => (op & 0b1100_1111) == 0b0100_1010,
+                    Instruction =  ADC_HL_XX,
+                    Logger = () =>
+                    {
+                        //emtpy logger
+                        return state => {
+                            return state;
+                        };
+                    }
+                },
+
             };
 
             return instructions;
@@ -2161,6 +2176,16 @@ namespace GreatEscape
                         };
                     }
                 },
+                new InstructionDef
+                {
+                    OpcodeDecoder = op => op == 0xBE, 
+                    Instruction =  CP_IXb,
+                    Logger = () =>
+                    {
+                        return st => st; //empty logger
+                    }
+                },
+
 
 
             };
@@ -2404,6 +2429,25 @@ namespace GreatEscape
             l = (byte)(rez % 256);
             flag_adj_c(rez > 0xFFFF);
         }
+
+        private void ADC_HL_XX()
+        {
+            int r = (m_extOpcode & 0b11_0000) >> 4;
+            int val = longreg_readers[r]();
+            int hl = h * 256 + l;
+
+            int rez = hl + val;
+            if (C()) rez += 1;
+
+            h = (byte)(rez / 256);
+            l = (byte)(rez % 256);
+
+            flag_adj_c(rez > 0xFFFF);
+            flag_adj_z((ushort)rez);
+            flag_adj_s((ushort)rez); //might be good might be not good
+
+        }
+
 
         private void SBC_HL_ss(int ed_instruction)
         {
@@ -3754,6 +3798,15 @@ namespace GreatEscape
             flag_adj_s(n);
         }
 
+
+        private void CP_IXb()
+        {
+            sbyte b = (sbyte)ram[pc++];
+            int adr = ix + b;
+            int n = ram[adr];
+            cp((byte)n);
+        }
+
         private void CP_IYb()
         {
             sbyte b = (sbyte)ram[pc++];
@@ -4616,6 +4669,8 @@ namespace GreatEscape
             ctx.af.a = a;
             ctx.af_.a = a_;
 
+            ctx.af.f = f;
+            ctx.af_.f = f_;
 
             ctx.hl.h = h;
             ctx.hl.l = l;

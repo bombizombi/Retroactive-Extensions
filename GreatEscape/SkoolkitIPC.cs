@@ -107,7 +107,12 @@ namespace GreatEscape
             //string ctlText = $"c ${ipc-14:X4} UNK \r\n  ${ipc:X4},2 comment for unknown ins  \r\nD ${ipc+2:X4} commD \r\n@ $800A label=compare_none\r\nC $800E,1 A button was pressed, continue. \r\ni ${ipc+19:X4}";
             //File.WriteAllText("temp.ctl", ctlText);
 
-            FileInfo fileInfo = new FileInfo(@"G:\cs\Spectrum_emulator\GreatEscape\GreatEscape\bin\Debug\net6.0-windows\yayfuse.z80");
+
+            //skoolkit file name parameters hardcoded for now
+            //FileInfo fileInfo = new FileInfo(@"G:\cs\Spectrum_emulator\GreatEscape\GreatEscape\bin\Debug\net6.0-windows\yayfuse.z80");
+            FileInfo fileInfo = new FileInfo(
+                @"G:\cs\Spectrum_emulator\GreatEscape\GreatEscape\bin\Debug\net7.0-windows\Head.z80"
+            );
             var dir = fileInfo.DirectoryName;
 
             //dissasemble it via snatoskool, capturing output
